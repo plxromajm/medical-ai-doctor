@@ -54,7 +54,7 @@ st.markdown("""
     }
     .eliminated { text-decoration: line-through; color: #adb5bd; }
     
-    /* 2. 정리본 표 스타일 (화면용) */
+    /* 2. 정리본 표 스타일 (화면용 - 이제 안 쓰지만 혹시 몰라 유지) */
     .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.95rem; }
     .summary-table th { background-color: #495057; color: white; padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 1.1rem; }
     .summary-table td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }
@@ -77,7 +77,6 @@ st.markdown("""
         border: 2px dashed #FF6B35 !important;
         border-radius: 12px;
         padding: 40px 20px;
-        /* [수정됨] 높이를 250px -> 500px로 2배 늘림 */
         min-height: 500px;
         display: flex;
         flex-direction: column;
@@ -88,7 +87,7 @@ st.markdown("""
     }
     [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
     [data-testid="stFileUploaderDropzone"]::before {
-        content: "📄"; font-size: 5rem; margin-bottom: 20px; display: block; /* 아이콘도 약간 키움 */
+        content: "📄"; font-size: 5rem; margin-bottom: 20px; display: block;
     }
     [data-testid="stFileUploaderDropzone"]::after {
         content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
@@ -299,7 +298,7 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성 (워드 표 높이 수정)
+# [탭 4] 정리본 형성
 # ==========================================
 with tab4:
     st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
@@ -393,43 +392,10 @@ with tab4:
                 st.rerun()
             except Exception as e: st.error(f"오류: {e}")
 
-    # ── 결과 표시 및 워드 다운로드 ──
+    # ── 워드 다운로드 (화면 표시는 삭제됨) ──
     if st.session_state['summary_data']:
-        st.divider()
-        st.subheader("📋 통합 정리본")
+        st.success("✅ 정리본 생성이 완료되었습니다! 아래 버튼을 눌러 다운로드하세요.")
         
-        # 1. 화면 표시 (HTML Table)
-        for item in st.session_state['summary_data']:
-            main_topic = item.get('main_topic', '주제 없음')
-            
-            html_code = f"""
-            <table class="summary-table">
-                <thead>
-                    <tr><th colspan="2">{main_topic}</th></tr>
-                </thead>
-                <tbody>
-            """
-            
-            for sub in item.get('sub_sections', []):
-                key = sub.get('key', '')
-                value = sub.get('value', '')
-                
-                value = value.replace('\n', '<br>')
-                value = re.sub(r'<(yellow)>(.*?)</\1>', r'<span class="hl-yellow">\2</span>', value)
-                value = re.sub(r'<(blue)>(.*?)</\1>', r'<span class="hl-blue">\2</span>', value)
-                value = re.sub(r'<(gray)>(.*?)</\1>', r'<span class="hl-gray">\2</span>', value)
-                
-                html_code += f"""
-                <tr>
-                    <td class="summary-header">{key}</td>
-                    <td>{value}</td>
-                </tr>
-                """
-            
-            html_code += "</tbody></table>"
-            st.markdown(html_code, unsafe_allow_html=True)
-
-        # 2. 워드 파일 생성 (표 스타일 적용 - 세로 길이 확장 및 여백 추가)
         try:
             doc_out = DocxDocument()
             
@@ -475,7 +441,7 @@ with tab4:
                     
                     row = table.add_row()
                     
-                    # [핵심 수정] 행 높이 설정 (넉넉하게)
+                    # [행 높이]
                     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
                     row.height = Cm(1.5) 
                     
@@ -495,7 +461,7 @@ with tab4:
                     cell_val.vertical_alignment = 1 # Center
                     p = cell_val.paragraphs[0]
                     
-                    # [핵심 수정] 글자 위아래 여백 및 줄간격 추가
+                    # [글자 여백]
                     p.paragraph_format.space_before = Pt(12)
                     p.paragraph_format.space_after = Pt(12)
                     p.paragraph_format.line_spacing = 1.5
