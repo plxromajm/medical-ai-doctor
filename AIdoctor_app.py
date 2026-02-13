@@ -92,19 +92,33 @@ st.markdown("""
     .hl-blue { color: #1971c2; font-weight: bold; }
     .hl-gray { color: #adb5bd; }
 
-    /* 파일 업로더 드래그앤드롭 스타일 */
+    /* ===== 탭 스타일: 4등분, 가운데정렬, 1.3rem ===== */
+    [data-testid="stTabs"] [role="tablist"] {
+        display: flex !important;
+        width: 100% !important;
+    }
+    [data-testid="stTabs"] button[role="tab"] {
+        flex: 1 1 25% !important;
+        justify-content: center !important;
+    }
+    [data-testid="stTabs"] button[role="tab"] p {
+        font-size: 1.3rem !important;
+        text-align: center !important;
+    }
+
+    /* ===== 파일 업로더 공통 ===== */
     [data-testid="stFileUploader"] {
         background-color: #ffffff;
         border: 2px dashed #dee2e6;
         border-radius: 12px;
-        padding: 25px 20px 15px 20px;
+        padding: 15px 20px;
         transition: border-color 0.3s, background-color 0.3s;
     }
     [data-testid="stFileUploader"]:hover {
         border-color: #FF6B35;
         background-color: #fff8f5;
     }
-    /* 라벨을 가운데 정렬, 굵게 */
+    /* 라벨 가운데 정렬 (탭4용) */
     [data-testid="stFileUploader"] label {
         width: 100% !important;
         text-align: center !important;
@@ -115,32 +129,35 @@ st.markdown("""
         font-weight: 600 !important;
         color: #212529 !important;
     }
-    /* 드롭존 자체 테두리 제거 */
+    /* 드롭존 테두리 제거 */
     [data-testid="stFileUploaderDropzone"] {
         border: none !important;
         background: transparent !important;
-        padding: 15px 10px !important;
+        padding: 10px !important;
+        display: flex !important;
+        justify-content: center !important;
     }
-    /* Browse 버튼 색상 */
+    /* ===== "Drag and drop" 텍스트, 파일크기 제한 텍스트 숨기기 ===== */
+    [data-testid="stFileUploaderDropzone"] span,
+    [data-testid="stFileUploaderDropzone"] small,
+    [data-testid="stFileUploaderDropzoneInstructions"] {
+        display: none !important;
+    }
+    /* Browse 버튼만 표시 */
     [data-testid="stFileUploaderDropzone"] button {
+        display: inline-flex !important;
         color: #FF6B35 !important;
         border-color: #FF6B35 !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button span {
+        display: inline !important;
     }
     [data-testid="stFileUploaderDropzone"] button:hover {
         background-color: #FF6B35 !important;
         color: white !important;
     }
-    /* 드롭존 안내 텍스트 */
-    [data-testid="stFileUploaderDropzone"] span {
-        color: #868e96 !important;
-    }
-    [data-testid="stFileUploaderDropzone"] small {
-        color: #adb5bd !important;
-    }
-
-    /* 탭 글씨 크기 1.6배 */
-    [data-testid="stTabs"] button[role="tab"] p {
-        font-size: 1.6rem !important;
+    [data-testid="stFileUploaderDropzone"] button:hover span {
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -207,7 +224,7 @@ def read_file(file):
 # ==========================================
 # 3. 화면 구성
 # ==========================================
-st.markdown("<h1 style='text-align: center; color: #FF6B35; font-size: 3.2rem;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #FF6B35; font-size: 3.2rem; margin-bottom: 2em;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
 
 if 'generated_quiz' not in st.session_state: st.session_state['generated_quiz'] = None
 if 'show_explanation' not in st.session_state: st.session_state['show_explanation'] = False
@@ -220,7 +237,17 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고�
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    uploaded_file = st.file_uploader("📄  학습 자료 업로드  ·  PDF / PPT / DOCX", type=['docx', 'pdf', 'pptx'], key="tab1_uploader")
+    # 파일 없을 때 커스텀 플레이스홀더
+    if st.session_state.get('tab1_uploader') is None:
+        st.markdown("""
+        <div style="text-align: center; padding: 30px 20px 5px;">
+            <div style="font-size: 3rem; color: #adb5bd; margin-bottom: 12px;">&#128196;</div>
+            <div style="font-size: 1.3rem; font-weight: bold; color: #212529; margin-bottom: 8px;">학습 자료가 없습니다</div>
+            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 4px;">PDF / PPT / DOCX 를 업로드하여 시작하세요</div>
+            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 5px;">AI가 학습 자료를 분석해 연습 문제를 생성해요</div>
+        </div>
+        """, unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
     study_content = read_file(uploaded_file) if uploaded_file else ""
     if uploaded_file and study_content:
         st.success(f"파일 읽기 성공! ({len(study_content)}자)")
