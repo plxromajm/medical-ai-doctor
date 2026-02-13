@@ -27,7 +27,7 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 MODEL = 'gemini-2.5-flash'
 DB_FILE = "medical_flashcards.json"
 
-st.set_page_config(page_title="의대 국시 마스터 (Final UI)", page_icon="🩺", layout="wide")
+st.set_page_config(page_title="MEDI-Quiz", page_icon="🩺", layout="wide")
 
 # ==========================================
 # CSS 스타일 설정
@@ -156,7 +156,7 @@ def read_file(file):
 # ==========================================
 # 3. 화면 구성
 # ==========================================
-st.title("🩺 의대 국시 마스터")
+st.markdown("<h1 style='text-align: center;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
 
 if 'generated_quiz' not in st.session_state: st.session_state['generated_quiz'] = None
 if 'show_explanation' not in st.session_state: st.session_state['show_explanation'] = False
@@ -169,42 +169,47 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고�
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    st.info("족보/가이드라인을 업로드하여 5지선다 문제를 만듭니다.")
-    col1, col2 = st.columns([3, 2])
-    with col1:
-        uploaded_file = st.file_uploader("자료 업로드 (PDF/Word)", type=['docx', 'pdf'])
-        study_content = read_file(uploaded_file) if uploaded_file else st.text_area("텍스트 직접 입력:", height=200)
-        if uploaded_file and study_content: st.success(f"파일 읽기 성공! ({len(study_content)}자)")
-    
-    with col2:
-        st.write("## ")
-        if st.button("⚡️ 10문제 한번에 출제하기", type="primary", use_container_width=True):
-            if not study_content: st.warning("내용을 입력해주세요.")
-            else:
-                with st.spinner("출제위원이 10개 문제를 만들고 있습니다..."):
-                    try:
-                        medical_categories = ["순환기내과", "호흡기내과", "소화기내과", "신장내과", "내분비내과", "감염내과", "류마티스내과", "신경과", "일반외과", "산부인과", "소아청소년과", "응급의학과", "예방의학", "피부과", "정신건강의학과"]
-                        selected_categories = random.sample(medical_categories, 10)
-                        categories_str = ", ".join(selected_categories)
+    uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
+    study_content = read_file(uploaded_file) if uploaded_file else ""
 
-                        prompt = f"""
-                        당신은 의사 국가고시 출제위원입니다. 다음 내용을 바탕으로 5지선다형 객관식 문제 10개를 만드세요.
-                        [필수 출제 계통] {categories_str} (순서대로)
-                        [내용] {study_content[:15000]}
-                        [출력] 반드시 JSON 배열 형식:
-                        [
-                            {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
-                        ]
-                        """
-                        response = client.models.generate_content(model=MODEL, contents=prompt)
-                        quizzes = json.loads(response.text.replace("```json", "").replace("```", ""))
-                        
-                        if isinstance(quizzes, list):
-                            for quiz in quizzes:
-                                save_card_to_file(quiz['question'], quiz['options'], quiz['correct_index'], quiz['explanation'])
-                            st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다!")
-                        else: st.error("형식 오류")
-                    except Exception as e: st.error(f"오류: {e}")
+    if uploaded_file and study_content:
+        st.success(f"파일 읽기 성공! ({len(study_content)}자)")
+    else:
+        st.markdown("""
+        <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
+                    padding: 50px 20px; text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 3rem; color: #adb5bd; margin-bottom: 15px;">&#128196;</div>
+            <div style="font-size: 1.3rem; font-weight: bold; color: #212529; margin-bottom: 8px;">학습 자료가 없습니다</div>
+            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 4px;">PDF / PPT / DOCX 를 업로드하여 시작하세요</div>
+            <div style="font-size: 0.95rem; color: #868e96;">AI가 학습 자료를 분석해 연습 문제를 생성해요</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not bool(study_content)):
+        with st.spinner("출제위원이 5개 문제를 만들고 있습니다..."):
+            try:
+                medical_categories = ["순환기내과", "호흡기내과", "소화기내과", "신장내과", "내분비내과", "감염내과", "류마티스내과", "신경과", "일반외과", "산부인과", "소아청소년과", "응급의학과", "예방의학", "피부과", "정신건강의학과"]
+                selected_categories = random.sample(medical_categories, 5)
+                categories_str = ", ".join(selected_categories)
+
+                prompt = f"""
+                당신은 의사 국가고시 출제위원입니다. 다음 내용을 바탕으로 5지선다형 객관식 문제 5개를 만드세요.
+                [필수 출제 계통] {categories_str} (순서대로)
+                [내용] {study_content[:15000]}
+                [출력] 반드시 JSON 배열 형식:
+                [
+                    {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
+                ]
+                """
+                response = client.models.generate_content(model=MODEL, contents=prompt)
+                quizzes = json.loads(response.text.replace("```json", "").replace("```", ""))
+
+                if isinstance(quizzes, list):
+                    for quiz in quizzes:
+                        save_card_to_file(quiz['question'], quiz['options'], quiz['correct_index'], quiz['explanation'])
+                    st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다!")
+                else: st.error("형식 오류")
+            except Exception as e: st.error(f"오류: {e}")
 
 # ==========================================
 # [탭 2] 실전 모의고사
