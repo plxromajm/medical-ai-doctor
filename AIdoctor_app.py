@@ -97,18 +97,50 @@ st.markdown("""
         background-color: #ffffff;
         border: 2px dashed #dee2e6;
         border-radius: 12px;
-        padding: 20px;
+        padding: 25px 20px 15px 20px;
         transition: border-color 0.3s, background-color 0.3s;
     }
     [data-testid="stFileUploader"]:hover {
         border-color: #FF6B35;
         background-color: #fff8f5;
     }
-    [data-testid="stFileUploader"] section {
-        padding: 0;
+    /* 라벨을 가운데 정렬, 굵게 */
+    [data-testid="stFileUploader"] label {
+        width: 100% !important;
+        text-align: center !important;
     }
-    [data-testid="stFileUploader"] section > button {
-        color: #FF6B35;
+    [data-testid="stFileUploader"] label p {
+        text-align: center !important;
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        color: #212529 !important;
+    }
+    /* 드롭존 자체 테두리 제거 */
+    [data-testid="stFileUploaderDropzone"] {
+        border: none !important;
+        background: transparent !important;
+        padding: 15px 10px !important;
+    }
+    /* Browse 버튼 색상 */
+    [data-testid="stFileUploaderDropzone"] button {
+        color: #FF6B35 !important;
+        border-color: #FF6B35 !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button:hover {
+        background-color: #FF6B35 !important;
+        color: white !important;
+    }
+    /* 드롭존 안내 텍스트 */
+    [data-testid="stFileUploaderDropzone"] span {
+        color: #868e96 !important;
+    }
+    [data-testid="stFileUploaderDropzone"] small {
+        color: #adb5bd !important;
+    }
+
+    /* 탭 글씨 크기 1.6배 */
+    [data-testid="stTabs"] button[role="tab"] p {
+        font-size: 1.6rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -175,7 +207,7 @@ def read_file(file):
 # ==========================================
 # 3. 화면 구성
 # ==========================================
-st.markdown("<h1 style='text-align: center; color: #FF6B35;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #FF6B35; font-size: 3.2rem;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
 
 if 'generated_quiz' not in st.session_state: st.session_state['generated_quiz'] = None
 if 'show_explanation' not in st.session_state: st.session_state['show_explanation'] = False
@@ -188,21 +220,10 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고�
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
+    uploaded_file = st.file_uploader("📄  학습 자료 업로드  ·  PDF / PPT / DOCX", type=['docx', 'pdf', 'pptx'], key="tab1_uploader")
     study_content = read_file(uploaded_file) if uploaded_file else ""
-
     if uploaded_file and study_content:
         st.success(f"파일 읽기 성공! ({len(study_content)}자)")
-    else:
-        st.markdown("""
-        <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
-                    padding: 50px 20px; text-align: center; margin-bottom: 20px;">
-            <div style="font-size: 3rem; color: #adb5bd; margin-bottom: 15px;">&#128196;</div>
-            <div style="font-size: 1.3rem; font-weight: bold; color: #212529; margin-bottom: 8px;">학습 자료가 없습니다</div>
-            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 4px;">PDF / PPT / DOCX 를 업로드하여 시작하세요</div>
-            <div style="font-size: 0.95rem; color: #868e96;">AI가 학습 자료를 분석해 연습 문제를 생성해요</div>
-        </div>
-        """, unsafe_allow_html=True)
 
     if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not bool(study_content)):
         with st.spinner("출제위원이 5개 문제를 만들고 있습니다..."):
@@ -340,7 +361,7 @@ with tab4:
     col_upload1, col_upload2 = st.columns(2)
 
     with col_upload1:
-        uploaded_summaries = st.file_uploader("강의자료 업로드", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True, label_visibility="collapsed")
+        uploaded_summaries = st.file_uploader("📚  강의자료 업로드  ·  PDF / PPT", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True)
         if uploaded_summaries:
             all_texts = []
             for f in uploaded_summaries:
@@ -361,18 +382,9 @@ with tab4:
                     except: pass
             lecture_content = "\n\n".join(all_texts)
             if lecture_content: st.success(f"강의자료 읽기 성공! ({len(lecture_content)}자)")
-        else:
-            st.markdown("""
-            <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
-                        padding: 35px 20px; text-align: center; margin-bottom: 10px;">
-                <div style="font-size: 2.5rem; color: #adb5bd; margin-bottom: 10px;">&#128218;</div>
-                <div style="font-size: 1.1rem; font-weight: bold; color: #212529; margin-bottom: 6px;">강의자료가 없습니다</div>
-                <div style="font-size: 0.9rem; color: #868e96;">PDF / PPT 파일을 업로드하세요</div>
-            </div>
-            """, unsafe_allow_html=True)
 
     with col_upload2:
-        uploaded_jokbo = st.file_uploader("족보 업로드", type=['pdf', 'docx'], key="jokbo_uploader", label_visibility="collapsed")
+        uploaded_jokbo = st.file_uploader("📝  족보 업로드  ·  PDF / DOCX", type=['pdf', 'docx'], key="jokbo_uploader")
         if uploaded_jokbo:
             if uploaded_jokbo.name.endswith('.pdf'):
                 try:
@@ -385,15 +397,6 @@ with tab4:
                     jokbo_content = "\n".join([p.text for p in doc.paragraphs])
                 except: pass
             if jokbo_content: st.success(f"족보 읽기 성공! ({len(jokbo_content)}자)")
-        else:
-            st.markdown("""
-            <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
-                        padding: 35px 20px; text-align: center; margin-bottom: 10px;">
-                <div style="font-size: 2.5rem; color: #adb5bd; margin-bottom: 10px;">&#128221;</div>
-                <div style="font-size: 1.1rem; font-weight: bold; color: #212529; margin-bottom: 6px;">족보가 없습니다</div>
-                <div style="font-size: 0.9rem; color: #868e96;">PDF / DOCX 파일을 업로드하세요</div>
-            </div>
-            """, unsafe_allow_html=True)
 
     st.divider()
 
