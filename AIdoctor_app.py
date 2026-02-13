@@ -14,8 +14,8 @@ import pandas as pd
 from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
-from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.enum.table import WD_ROW_HEIGHT_RULE 
+from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT # 정렬 관련 추가
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import re
@@ -23,7 +23,7 @@ import re
 # ==========================================
 # 1. 프로그램 기본 설정
 # ==========================================
-# [주의] 배포 시에는 st.secrets를 사용하세요. 로컬 테스트용 키입니다.
+# [주의] 배포 시에는 st.secrets를 사용하세요.
 GOOGLE_API_KEY = "AIzaSyA4xWRH8HnIWmAWAOnU1D9w8eNoOGYJsMM" 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 MODEL = 'gemini-2.5-flash'
@@ -72,7 +72,7 @@ st.markdown("""
         border: 2px dashed #FF6B35 !important;
         border-radius: 12px;
         padding: 40px 20px;
-        min-height: 500px; /* 높이 2배 확장 */
+        min-height: 500px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -293,7 +293,7 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성 (최종 수정: 3단 표, 번호매기기, 줄간격1)
+# [탭 4] 정리본 형성 (최종: 3단 표 + 셀병합 + 스타일)
 # ==========================================
 with tab4:
     st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
@@ -354,7 +354,7 @@ with tab4:
     if st.button("📋 통합 표 정리본 생성", type="primary", use_container_width=True, disabled=not bool(lecture_content)):
         with st.spinner("AI가 강의와 족보를 분석하여 표를 만들고 있습니다... (약 20초 소요)"):
             try:
-                # [Prompt 수정] 3단 분류 지원, 번호 매기기 강제, 줄바꿈 강제
+                # [Prompt] 3단 분류, 번호 매기기, 줄바꿈 강제
                 prompt = f"""
                 당신은 의대 학습 정리 전문가입니다.
                 강의자료를 메인 주제(질환 등)별로 나누고, 표 형태로 정리하세요.
@@ -439,47 +439,60 @@ with tab4:
                 run_main.font.size = Pt(12)
                 cell_main.paragraphs[0].alignment = 1
 
+                # [병합 로직을 위한 변수]
+                last_key = None
+                key_cell_anchor = None
+
                 for sub in sub_sections:
                     key = sub.get('key', '')
-                    sub_key = sub.get('sub_key', '') # 하위 분류
+                    sub_key = sub.get('sub_key', '')
                     content = sub.get('value', '')
                     
                     row = table.add_row()
                     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
                     row.height = Cm(1.5) 
                     
-                    # 1열: 소주제 (너비 2.5cm로 축소)
+                    # ── 1열: 소주제 (셀 병합 로직 적용) ──
                     cell_key = row.cells[0]
-                    cell_key.text = key
-                    cell_key.width = Cm(2.5) 
-                    set_cell_background(cell_key, "E9ECEF")
-                    cell_key.paragraphs[0].runs[0].bold = True
-                    cell_key.vertical_alignment = 1 # Center
-                    cell_key.paragraphs[0].alignment = 1 # Center
-
-                    # 2열 & 3열 처리 Logic
+                    
+                    # 이전 행과 키가 같고 + 이전에 anchor가 존재하면 병합
+                    if key == last_key and key_cell_anchor is not None:
+                        key_cell_anchor.merge(cell_key)
+                        # 병합된 셀의 텍스트가 중복되지 않도록 현재 셀 텍스트는 설정 안 함
+                    else:
+                        # 새로운 키 등장 -> 텍스트 설정 및 스타일링
+                        cell_key.text = key
+                        cell_key.width = Cm(2.5) 
+                        set_cell_background(cell_key, "E9ECEF")
+                        cell_key.paragraphs[0].runs[0].bold = True
+                        cell_key.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                        cell_key.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        
+                        # 새로운 anchor 설정
+                        key_cell_anchor = cell_key
+                        last_key = key
+                    
+                    # ── 2열 & 3열 처리 ──
                     if sub_key and sub_key.strip():
-                        # 하위 분류가 있는 경우: 2열에 표시
+                        # 하위 분류 있음: 2열에 표시
                         cell_sub = row.cells[1]
                         cell_sub.text = sub_key
                         cell_sub.width = Cm(2.5)
-                        set_cell_background(cell_sub, "F8F9FA") # 더 연한 회색
+                        set_cell_background(cell_sub, "F8F9FA")
                         cell_sub.paragraphs[0].runs[0].bold = True
-                        cell_sub.vertical_alignment = 1
-                        cell_sub.paragraphs[0].alignment = 1
+                        cell_sub.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                        cell_sub.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
                         
-                        cell_val = row.cells[2] # 내용은 3열에
+                        cell_val = row.cells[2] # 내용은 3열
                     else:
-                        # 하위 분류가 없는 경우: 2열과 3열을 병합해서 내용 표시
+                        # 하위 분류 없음: 2열-3열 병합
                         cell_sub = row.cells[1]
                         cell_sub.merge(row.cells[2])
                         cell_val = row.cells[1]
 
-                    # 내용 채우기 (cell_val)
-                    cell_val.vertical_alignment = 1 # Center
+                    # ── 내용 채우기 (cell_val) ──
+                    cell_val.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                     p = cell_val.paragraphs[0]
-                    
-                    # [줄간격 1.0 설정]
                     p.paragraph_format.line_spacing = 1.0 
                     p.paragraph_format.space_before = Pt(6)
                     p.paragraph_format.space_after = Pt(6)
