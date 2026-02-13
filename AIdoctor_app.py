@@ -15,8 +15,8 @@ from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
 from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT # 정렬 관련 추가
-from docx.oxml.ns import qn
+from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT 
+from docx.oxml.ns import qn # [중요] 한글 폰트 적용을 위한 필수 모듈
 from docx.oxml import OxmlElement
 import re
 
@@ -106,6 +106,20 @@ def set_cell_background(cell, color_hex):
     shading_elm = OxmlElement('w:shd')
     shading_elm.set(qn('w:fill'), color_hex)
     cell_properties.append(shading_elm)
+
+# [NEW] 한글 폰트(맑은 고딕)와 사이즈(9pt)를 강제로 적용하는 함수
+def set_font_style(run, font_name='맑은 고딕', font_size=9, is_bold=False):
+    run.font.name = font_name
+    run.font.size = Pt(font_size)
+    run.bold = is_bold
+    # 한글 폰트 적용을 위해 XML 속성(w:eastAsia)을 직접 설정
+    r = run._element
+    rPr = r.get_or_add_rPr()
+    fonts = OxmlElement('w:rFonts')
+    fonts.set(qn('w:eastAsia'), font_name) # 한글
+    fonts.set(qn('w:ascii'), font_name)    # 영문
+    fonts.set(qn('w:hAnsi'), font_name)    # 기타
+    rPr.append(fonts)
 
 def load_cards():
     if not os.path.exists(DB_FILE): return []
@@ -293,7 +307,7 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성 (최종: 3단 표 + 셀병합 + 스타일)
+# [탭 4] 정리본 형성 (최종: 맑은고딕 9pt)
 # ==========================================
 with tab4:
     st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
@@ -354,7 +368,6 @@ with tab4:
     if st.button("📋 통합 표 정리본 생성", type="primary", use_container_width=True, disabled=not bool(lecture_content)):
         with st.spinner("AI가 강의와 족보를 분석하여 표를 만들고 있습니다... (약 20초 소요)"):
             try:
-                # [Prompt] 3단 분류, 번호 매기기, 줄바꿈 강제
                 prompt = f"""
                 당신은 의대 학습 정리 전문가입니다.
                 강의자료를 메인 주제(질환 등)별로 나누고, 표 형태로 정리하세요.
@@ -402,17 +415,28 @@ with tab4:
         try:
             doc_out = DocxDocument()
             
+            # [제목]
             title = doc_out.add_heading('의대 강의/족보 통합 정리본', level=0)
-            title.alignment = 1 
+            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run_title = title.runs[0]
+            set_font_style(run_title, font_size=16, is_bold=True)
             
+            # [범례]
             legend = doc_out.add_paragraph()
-            legend.alignment = 1
+            legend.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
             run_y = legend.add_run('■ 정답  ')
+            set_font_style(run_y, font_size=9)
             run_y.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            
             run_b = legend.add_run('■ 관련 오답  ')
+            set_font_style(run_b, font_size=9)
             run_b.font.color.rgb = RGBColor(0x19, 0x71, 0xC2)
+            
             run_g = legend.add_run('■ 무관 오답')
+            set_font_style(run_g, font_size=9)
             run_g.font.color.rgb = RGBColor(0xAD, 0xB5, 0xBD)
+            
             doc_out.add_paragraph() 
 
             for item in st.session_state['summary_data']:
@@ -433,11 +457,12 @@ with tab4:
                 cell_main.text = main_topic
                 
                 set_cell_background(cell_main, "495057") 
-                run_main = cell_main.paragraphs[0].runs[0]
+                # 메인 주제 폰트: 맑은 고딕 10pt (Bold)
+                p_main = cell_main.paragraphs[0]
+                p_main.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run_main = p_main.runs[0]
                 run_main.font.color.rgb = RGBColor(255, 255, 255)
-                run_main.bold = True
-                run_main.font.size = Pt(12)
-                cell_main.paragraphs[0].alignment = 1
+                set_font_style(run_main, font_size=10, is_bold=True)
 
                 # [병합 로직을 위한 변수]
                 last_key = None
@@ -452,45 +477,45 @@ with tab4:
                     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
                     row.height = Cm(1.5) 
                     
-                    # ── 1열: 소주제 (셀 병합 로직 적용) ──
+                    # ── 1열: 소주제 (셀 병합 + 폰트 9pt) ──
                     cell_key = row.cells[0]
                     
-                    # 이전 행과 키가 같고 + 이전에 anchor가 존재하면 병합
                     if key == last_key and key_cell_anchor is not None:
                         key_cell_anchor.merge(cell_key)
-                        # 병합된 셀의 텍스트가 중복되지 않도록 현재 셀 텍스트는 설정 안 함
                     else:
-                        # 새로운 키 등장 -> 텍스트 설정 및 스타일링
                         cell_key.text = key
                         cell_key.width = Cm(2.5) 
                         set_cell_background(cell_key, "E9ECEF")
-                        cell_key.paragraphs[0].runs[0].bold = True
-                        cell_key.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-                        cell_key.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
                         
-                        # 새로운 anchor 설정
+                        p_k = cell_key.paragraphs[0]
+                        p_k.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        set_font_style(p_k.runs[0], font_size=9, is_bold=True)
+                        cell_key.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                        
                         key_cell_anchor = cell_key
                         last_key = key
                     
-                    # ── 2열 & 3열 처리 ──
+                    # ── 2열 & 3열 처리 (폰트 9pt) ──
                     if sub_key and sub_key.strip():
-                        # 하위 분류 있음: 2열에 표시
+                        # 하위 분류 있음
                         cell_sub = row.cells[1]
                         cell_sub.text = sub_key
                         cell_sub.width = Cm(2.5)
                         set_cell_background(cell_sub, "F8F9FA")
-                        cell_sub.paragraphs[0].runs[0].bold = True
-                        cell_sub.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-                        cell_sub.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
                         
-                        cell_val = row.cells[2] # 내용은 3열
+                        p_sub = cell_sub.paragraphs[0]
+                        p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        set_font_style(p_sub.runs[0], font_size=9, is_bold=True)
+                        cell_sub.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                        
+                        cell_val = row.cells[2]
                     else:
-                        # 하위 분류 없음: 2열-3열 병합
+                        # 하위 분류 없음
                         cell_sub = row.cells[1]
                         cell_sub.merge(row.cells[2])
                         cell_val = row.cells[1]
 
-                    # ── 내용 채우기 (cell_val) ──
+                    # ── 내용 채우기 (폰트 9pt) ──
                     cell_val.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                     p = cell_val.paragraphs[0]
                     p.paragraph_format.line_spacing = 1.0 
@@ -504,16 +529,24 @@ with tab4:
                         if tag_match:
                             tag_type = tag_match.group(1)
                             text_body = tag_match.group(2)
+                            
+                            # run 추가 후 폰트 설정
                             run = p.add_run(text_body)
+                            
+                            # 색상 설정
                             if tag_type == 'yellow':
                                 run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+                                set_font_style(run, font_size=9, is_bold=False)
                             elif tag_type == 'blue':
                                 run.font.color.rgb = RGBColor(0x19, 0x71, 0xC2)
-                                run.bold = True
+                                set_font_style(run, font_size=9, is_bold=True)
                             elif tag_type == 'gray':
                                 run.font.color.rgb = RGBColor(0xAD, 0xB5, 0xBD)
+                                set_font_style(run, font_size=9, is_bold=False)
                         else:
-                            p.add_run(part)
+                            # 일반 텍스트
+                            run = p.add_run(part)
+                            set_font_style(run, font_size=9, is_bold=False)
 
                 doc_out.add_paragraph() 
 
