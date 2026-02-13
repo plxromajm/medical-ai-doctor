@@ -14,7 +14,7 @@ import pandas as pd
 from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
-from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_ROW_HEIGHT_RULE 
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -23,7 +23,8 @@ import re
 # ==========================================
 # 1. 프로그램 기본 설정
 # ==========================================
-GOOGLE_API_KEY = "AIzaSyA4xWRH8HnIWmAWAOnU1D9w8eNoOGYJsMM"  # 선생님 키 확인!
+# [주의] 배포 시에는 st.secrets를 사용하세요. 로컬 테스트용 키입니다.
+GOOGLE_API_KEY = "AIzaSyA4xWRH8HnIWmAWAOnU1D9w8eNoOGYJsMM" 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 MODEL = 'gemini-2.5-flash'
 DB_FILE = "medical_flashcards.json"
@@ -54,30 +55,24 @@ st.markdown("""
     }
     .eliminated { text-decoration: line-through; color: #adb5bd; }
     
-    /* 2. 정리본 표 스타일 (화면용 - 이제 안 쓰지만 혹시 몰라 유지) */
-    .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.95rem; }
-    .summary-table th { background-color: #495057; color: white; padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 1.1rem; }
-    .summary-table td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }
-    .summary-header { background-color: #e9ecef; font-weight: bold; width: 20%; text-align: center; vertical-align: middle !important; }
-    
-    /* 3. 하이라이트 스타일 */
+    /* 2. 하이라이트 스타일 */
     .hl-yellow { background-color: #fff3bf; padding: 2px 4px; border-radius: 3px; }
     .hl-blue { color: #1971c2; font-weight: bold; }
     .hl-gray { color: #adb5bd; }
 
-    /* 4. 탭 스타일 (4등분, 가운데 정렬) */
+    /* 3. 탭 스타일 (4등분, 가운데 정렬) */
     [data-testid="stTabs"] [role="tablist"] { display: flex !important; width: 100% !important; }
     [data-testid="stTabs"] button[role="tab"] { flex: 1 1 25% !important; justify-content: center !important; }
     [data-testid="stTabs"] button[role="tab"] p { font-size: 1.3rem !important; text-align: center !important; }
 
-    /* 5. 파일 업로더 디자인 커스터마이징 */
+    /* 4. 파일 업로더 디자인 커스터마이징 */
     [data-testid="stFileUploader"] { margin-top: 20px; }
     [data-testid="stFileUploaderDropzone"] {
         background-color: #fff8f5;
         border: 2px dashed #FF6B35 !important;
         border-radius: 12px;
         padding: 40px 20px;
-        min-height: 500px;
+        min-height: 500px; /* 높이 2배 확장 */
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -298,7 +293,7 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성
+# [탭 4] 정리본 형성 (최종 수정: 3단 표, 번호매기기, 줄간격1)
 # ==========================================
 with tab4:
     st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
@@ -357,11 +352,20 @@ with tab4:
     st.divider()
 
     if st.button("📋 통합 표 정리본 생성", type="primary", use_container_width=True, disabled=not bool(lecture_content)):
-        with st.spinner("AI가 강의와 족보를 분석하여 표를 만들고 있습니다..."):
+        with st.spinner("AI가 강의와 족보를 분석하여 표를 만들고 있습니다... (약 20초 소요)"):
             try:
+                # [Prompt 수정] 3단 분류 지원, 번호 매기기 강제, 줄바꿈 강제
                 prompt = f"""
                 당신은 의대 학습 정리 전문가입니다.
-                강의자료를 메인 주제(질환 등)별로 나누고, 각 주제 하위에 소주제(임상양상, 진단, 치료 등)를 포함한 표 형태로 정리하세요.
+                강의자료를 메인 주제(질환 등)별로 나누고, 표 형태로 정리하세요.
+
+                [구조 요구사항]
+                1. 기본적으로 '소주제' - '내용'의 2단 구성을 따릅니다.
+                2. 단, 소주제 내부에서 또다시 분류가 필요한 경우(예: 진단 내의 혈액검사/영상검사 등)에는 '세부 분류'를 추가하여 3단으로 구성하세요.
+                
+                [서식 규칙]
+                1. 내용(value)은 긴 줄글로 쓰지 말고, 반드시 '1. ', '2. ' 번호를 붙여 개조식으로 작성하세요.
+                2. 각 번호 항목이 끝날 때마다 반드시 줄바꿈을 하세요.
                 
                 [색상 태그 규칙]
                 - 족보 정답 선지 내용: <yellow>내용</yellow>
@@ -373,15 +377,14 @@ with tab4:
                 족보: {jokbo_content[:20000]}
 
                 [출력 형식 - JSON 배열]
-                반드시 아래 구조를 지키세요.
+                반드시 아래 구조를 지키세요. 'sub_key'는 하위 분류가 있을 때만 작성하고, 없으면 null 또는 빈 문자열로 두세요.
                 [
                   {{
                     "main_topic": "메인 주제명 (예: 급성 A형 간염)",
                     "sub_sections": [
-                      {{ "key": "개요/정의", "value": "내용..." }},
-                      {{ "key": "임상양상", "value": "발열, 황달..." }},
-                      {{ "key": "진단", "value": "IgM anti-HAV <yellow>양성</yellow>..." }},
-                      {{ "key": "치료", "value": "보존적 치료..." }}
+                      {{ "key": "개요", "sub_key": "", "value": "1. 정의: ...\\n2. 역학: ..." }},
+                      {{ "key": "진단", "sub_key": "혈액검사", "value": "1. IgM anti-HAV <yellow>양성</yellow>...\\n2. LFT 상승..." }},
+                      {{ "key": "진단", "sub_key": "영상검사", "value": "1. 초음파: 간비대 소견..." }}
                     ]
                   }},
                   ...
@@ -392,7 +395,7 @@ with tab4:
                 st.rerun()
             except Exception as e: st.error(f"오류: {e}")
 
-    # ── 워드 다운로드 (화면 표시는 삭제됨) ──
+    # ── 워드 다운로드 ──
     if st.session_state['summary_data']:
         st.success("✅ 정리본 생성이 완료되었습니다! 아래 버튼을 눌러 다운로드하세요.")
         
@@ -418,13 +421,15 @@ with tab4:
                 
                 if not sub_sections: continue
 
-                table = doc_out.add_table(rows=0, cols=2)
+                # [핵심] 3열 테이블 생성 (소주제 / 세부분류 / 내용)
+                table = doc_out.add_table(rows=0, cols=3)
                 table.style = 'Table Grid' 
                 
-                # 메인 주제 행
+                # 메인 주제 행 (3칸 병합)
                 row_main = table.add_row()
                 cell_main = row_main.cells[0]
                 cell_main.merge(row_main.cells[1])
+                cell_main.merge(row_main.cells[2])
                 cell_main.text = main_topic
                 
                 set_cell_background(cell_main, "495057") 
@@ -434,48 +439,59 @@ with tab4:
                 run_main.font.size = Pt(12)
                 cell_main.paragraphs[0].alignment = 1
 
-                # 소주제 행들 추가
                 for sub in sub_sections:
                     key = sub.get('key', '')
+                    sub_key = sub.get('sub_key', '') # 하위 분류
                     content = sub.get('value', '')
                     
                     row = table.add_row()
-                    
-                    # [행 높이]
                     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
                     row.height = Cm(1.5) 
                     
-                    # 왼쪽 셀
+                    # 1열: 소주제 (너비 2.5cm로 축소)
                     cell_key = row.cells[0]
                     cell_key.text = key
-                    cell_key.width = Cm(3.5)
+                    cell_key.width = Cm(2.5) 
                     set_cell_background(cell_key, "E9ECEF")
-                    
-                    p_key = cell_key.paragraphs[0]
-                    p_key.runs[0].bold = True
+                    cell_key.paragraphs[0].runs[0].bold = True
                     cell_key.vertical_alignment = 1 # Center
-                    p_key.alignment = 1 # Center
+                    cell_key.paragraphs[0].alignment = 1 # Center
 
-                    # 오른쪽 셀
-                    cell_val = row.cells[1]
+                    # 2열 & 3열 처리 Logic
+                    if sub_key and sub_key.strip():
+                        # 하위 분류가 있는 경우: 2열에 표시
+                        cell_sub = row.cells[1]
+                        cell_sub.text = sub_key
+                        cell_sub.width = Cm(2.5)
+                        set_cell_background(cell_sub, "F8F9FA") # 더 연한 회색
+                        cell_sub.paragraphs[0].runs[0].bold = True
+                        cell_sub.vertical_alignment = 1
+                        cell_sub.paragraphs[0].alignment = 1
+                        
+                        cell_val = row.cells[2] # 내용은 3열에
+                    else:
+                        # 하위 분류가 없는 경우: 2열과 3열을 병합해서 내용 표시
+                        cell_sub = row.cells[1]
+                        cell_sub.merge(row.cells[2])
+                        cell_val = row.cells[1]
+
+                    # 내용 채우기 (cell_val)
                     cell_val.vertical_alignment = 1 # Center
                     p = cell_val.paragraphs[0]
                     
-                    # [글자 여백]
-                    p.paragraph_format.space_before = Pt(12)
-                    p.paragraph_format.space_after = Pt(12)
-                    p.paragraph_format.line_spacing = 1.5
+                    # [줄간격 1.0 설정]
+                    p.paragraph_format.line_spacing = 1.0 
+                    p.paragraph_format.space_before = Pt(6)
+                    p.paragraph_format.space_after = Pt(6)
                     
                     parts = re.split(r'(<(?:yellow|blue|gray)>.*?</(?:yellow|blue|gray)>)', content)
                     for part in parts:
                         if not part: continue
-                        
                         tag_match = re.match(r'<(yellow|blue|gray)>(.*?)</\1>', part)
                         if tag_match:
                             tag_type = tag_match.group(1)
                             text_body = tag_match.group(2)
                             run = p.add_run(text_body)
-                            
                             if tag_type == 'yellow':
                                 run.font.highlight_color = WD_COLOR_INDEX.YELLOW
                             elif tag_type == 'blue':
