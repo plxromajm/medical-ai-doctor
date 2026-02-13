@@ -14,7 +14,9 @@ import pandas as pd
 from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
-from docx.enum.text import WD_COLOR_INDEX
+# [중요] 워드 표 높이 설정을 위한 라이브러리 추가
+from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ROW_HEIGHT_RULE 
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import re
@@ -53,7 +55,7 @@ st.markdown("""
     }
     .eliminated { text-decoration: line-through; color: #adb5bd; }
     
-    /* 2. 정리본 표 스타일 */
+    /* 2. 정리본 표 스타일 (화면용) */
     .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.95rem; }
     .summary-table th { background-color: #495057; color: white; padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 1.1rem; }
     .summary-table td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }
@@ -69,22 +71,14 @@ st.markdown("""
     [data-testid="stTabs"] button[role="tab"] { flex: 1 1 25% !important; justify-content: center !important; }
     [data-testid="stTabs"] button[role="tab"] p { font-size: 1.3rem !important; text-align: center !important; }
 
-    /* ================================================================= */
-    /* [핵심] 5. 파일 업로더 디자인 커스터마이징 (드롭존 스타일) */
-    /* ================================================================= */
-    
-    /* 업로더 컨테이너 */
-    [data-testid="stFileUploader"] {
-        margin-top: 20px;
-    }
-    
-    /* 드롭존 영역 (박스) */
+    /* 5. 파일 업로더 디자인 커스터마이징 */
+    [data-testid="stFileUploader"] { margin-top: 20px; }
     [data-testid="stFileUploaderDropzone"] {
-        background-color: #fff8f5;            /* 연한 주황색 배경 */
-        border: 2px dashed #FF6B35 !important; /* 주황색 점선 테두리 */
+        background-color: #fff8f5;
+        border: 2px dashed #FF6B35 !important;
         border-radius: 12px;
-        padding: 40px 20px;                   /* 안쪽 여백을 넉넉하게 줘서 높이 확보 */
-        min-height: 250px;                    /* 최소 높이 설정 */
+        padding: 40px 20px;
+        min-height: 250px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -92,52 +86,19 @@ st.markdown("""
         text-align: center;
         transition: background-color 0.3s;
     }
-    
-    /* 드롭존 호버 효과 */
-    [data-testid="stFileUploaderDropzone"]:hover {
-        background-color: #ffe8cc;
-    }
-
-    /* 아이콘 넣기 (::before 가상 요소 사용) */
+    [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
     [data-testid="stFileUploaderDropzone"]::before {
-        content: "📄";  /* 문서 아이콘 */
-        font-size: 4rem; /* 아이콘 크기 */
-        margin-bottom: 15px;
-        display: block;
+        content: "📄"; font-size: 4rem; margin-bottom: 15px; display: block;
     }
-
-    /* 안내 문구 넣기 (::after 가상 요소 사용) */
     [data-testid="stFileUploaderDropzone"]::after {
-        content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원"; /* \\A는 줄바꿈 */
-        white-space: pre-wrap; /* 줄바꿈 적용 */
-        font-size: 1.1rem;
-        color: #495057;
-        margin-top: 15px;
-        font-weight: 600;
-        line-height: 1.6;
+        content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.1rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
     }
-
-    /* 기본으로 뜨는 지저분한 텍스트 숨기기 */
-    [data-testid="stFileUploaderDropzoneInstructions"], 
-    [data-testid="stFileUploaderDropzone"] small {
-         display: none !important;
-    }
-
-    /* 'Browse files' 버튼 스타일 */
+    [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzone"] small { display: none !important; }
     [data-testid="stFileUploaderDropzone"] button {
-        background-color: #FF6B35;
-        color: white;
-        border: none;
-        border-radius: 20px;
-        padding: 8px 20px;
-        font-weight: bold;
-        order: 2; /* 버튼 순서 조정 (아이콘과 텍스트 사이로) */
+        background-color: #FF6B35; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-weight: bold; order: 2;
     }
-    [data-testid="stFileUploaderDropzone"] button:hover {
-        background-color: #e8590c;
-        color: white;
-    }
-    
+    [data-testid="stFileUploaderDropzone"] button:hover { background-color: #e8590c; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -145,6 +106,7 @@ st.markdown("""
 # 2. 백엔드 함수들
 # ==========================================
 
+# 워드 표 셀 배경색 설정을 위한 함수 (XML 조작)
 def set_cell_background(cell, color_hex):
     cell_properties = cell._element.get_or_add_tcPr()
     shading_elm = OxmlElement('w:shd')
@@ -215,10 +177,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고�
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    # (수정됨) 기존의 복잡한 HTML 텍스트 코드는 제거하고, 깔끔하게 업로더만 남김
-    # CSS에서 디자인을 모두 처리했으므로 여기서는 label_visibility="collapsed"로 라벨만 숨깁니다.
     uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
-    
     study_content = read_file(uploaded_file) if uploaded_file else ""
     if uploaded_file and study_content:
         st.success(f"파일 읽기 성공! ({len(study_content)}자)")
@@ -340,7 +299,7 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성 (테이블 형식 업데이트)
+# [탭 4] 정리본 형성 (워드 표 높이 수정)
 # ==========================================
 with tab4:
     st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
@@ -359,7 +318,6 @@ with tab4:
     col_upload1, col_upload2 = st.columns(2)
 
     with col_upload1:
-        # label_visibility="collapsed"로 설정하여 기본 텍스트 숨김 (CSS로 디자인 대체)
         uploaded_summaries = st.file_uploader("강의자료 업로드", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True, label_visibility="collapsed")
         if uploaded_summaries:
             all_texts = []
@@ -383,7 +341,6 @@ with tab4:
             if lecture_content: st.success(f"강의자료 읽기 성공! ({len(lecture_content)}자)")
 
     with col_upload2:
-        # label_visibility="collapsed"로 설정
         uploaded_jokbo = st.file_uploader("족보 업로드", type=['pdf', 'docx'], key="jokbo_uploader", label_visibility="collapsed")
         if uploaded_jokbo:
             if uploaded_jokbo.name.endswith('.pdf'):
@@ -445,7 +402,6 @@ with tab4:
         for item in st.session_state['summary_data']:
             main_topic = item.get('main_topic', '주제 없음')
             
-            # HTML Table 시작
             html_code = f"""
             <table class="summary-table">
                 <thead>
@@ -458,7 +414,6 @@ with tab4:
                 key = sub.get('key', '')
                 value = sub.get('value', '')
                 
-                # 태그 변환 (HTML 표시용)
                 value = value.replace('\n', '<br>')
                 value = re.sub(r'<(yellow)>(.*?)</\1>', r'<span class="hl-yellow">\2</span>', value)
                 value = re.sub(r'<(blue)>(.*?)</\1>', r'<span class="hl-blue">\2</span>', value)
@@ -474,15 +429,13 @@ with tab4:
             html_code += "</tbody></table>"
             st.markdown(html_code, unsafe_allow_html=True)
 
-        # 2. 워드 파일 생성 (표 스타일 적용)
+        # 2. 워드 파일 생성 (표 스타일 적용 - 세로 길이 확장 및 여백 추가)
         try:
             doc_out = DocxDocument()
             
-            # 제목
             title = doc_out.add_heading('의대 강의/족보 통합 정리본', level=0)
-            title.alignment = 1 # 가운데 정렬
+            title.alignment = 1 
             
-            # 범례
             legend = doc_out.add_paragraph()
             legend.alignment = 1
             run_y = legend.add_run('■ 정답  ')
@@ -491,7 +444,7 @@ with tab4:
             run_b.font.color.rgb = RGBColor(0x19, 0x71, 0xC2)
             run_g = legend.add_run('■ 무관 오답')
             run_g.font.color.rgb = RGBColor(0xAD, 0xB5, 0xBD)
-            doc_out.add_paragraph() # 빈 줄
+            doc_out.add_paragraph() 
 
             for item in st.session_state['summary_data']:
                 main_topic = item.get('main_topic', '')
@@ -499,18 +452,16 @@ with tab4:
                 
                 if not sub_sections: continue
 
-                # 표 생성 (행 수: 소주제 개수 + 1(제목행), 열 수: 2)
                 table = doc_out.add_table(rows=0, cols=2)
-                table.style = 'Table Grid' # 격자 스타일
+                table.style = 'Table Grid' 
                 
-                # 1행: 메인 주제 (병합)
+                # 메인 주제 행
                 row_main = table.add_row()
                 cell_main = row_main.cells[0]
                 cell_main.merge(row_main.cells[1])
                 cell_main.text = main_topic
                 
-                # 메인 주제 스타일 (진한 회색 배경, 흰 글씨, 가운데 정렬)
-                set_cell_background(cell_main, "495057") # Hex color
+                set_cell_background(cell_main, "495057") 
                 run_main = cell_main.paragraphs[0].runs[0]
                 run_main.font.color.rgb = RGBColor(255, 255, 255)
                 run_main.bold = True
@@ -524,25 +475,35 @@ with tab4:
                     
                     row = table.add_row()
                     
-                    # 왼쪽 셀 (소주제): 회색 배경
+                    # [핵심 수정] 행 높이 설정 (넉넉하게)
+                    row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+                    row.height = Cm(1.5) 
+                    
+                    # 왼쪽 셀
                     cell_key = row.cells[0]
                     cell_key.text = key
-                    cell_key.width = Cm(3.5) # 너비 고정
-                    set_cell_background(cell_key, "E9ECEF") # 연한 회색
-                    cell_key.paragraphs[0].runs[0].bold = True
-                    cell_key.vertical_alignment = 0 # Top 정렬
+                    cell_key.width = Cm(3.5)
+                    set_cell_background(cell_key, "E9ECEF")
+                    
+                    p_key = cell_key.paragraphs[0]
+                    p_key.runs[0].bold = True
+                    cell_key.vertical_alignment = 1 # Center
+                    p_key.alignment = 1 # Center
 
-                    # 오른쪽 셀 (내용): 태그 파싱하여 스타일 적용
+                    # 오른쪽 셀
                     cell_val = row.cells[1]
-                    cell_val.vertical_alignment = 0
+                    cell_val.vertical_alignment = 1 # Center
                     p = cell_val.paragraphs[0]
                     
-                    # 정규식으로 태그 분리해서 순서대로 넣기
+                    # [핵심 수정] 글자 위아래 여백 및 줄간격 추가
+                    p.paragraph_format.space_before = Pt(12)
+                    p.paragraph_format.space_after = Pt(12)
+                    p.paragraph_format.line_spacing = 1.5
+                    
                     parts = re.split(r'(<(?:yellow|blue|gray)>.*?</(?:yellow|blue|gray)>)', content)
                     for part in parts:
                         if not part: continue
                         
-                        # 태그 확인
                         tag_match = re.match(r'<(yellow|blue|gray)>(.*?)</\1>', part)
                         if tag_match:
                             tag_type = tag_match.group(1)
@@ -557,10 +518,9 @@ with tab4:
                             elif tag_type == 'gray':
                                 run.font.color.rgb = RGBColor(0xAD, 0xB5, 0xBD)
                         else:
-                            # 일반 텍스트
                             p.add_run(part)
 
-                doc_out.add_paragraph() # 표 사이 간격
+                doc_out.add_paragraph() 
 
             bio = BytesIO()
             doc_out.save(bio)
