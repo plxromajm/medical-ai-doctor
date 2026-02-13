@@ -14,7 +14,6 @@ import pandas as pd
 from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
-# [중요] 워드 표 높이 설정을 위한 라이브러리 추가
 from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ROW_HEIGHT_RULE 
 from docx.oxml.ns import qn
@@ -78,7 +77,8 @@ st.markdown("""
         border: 2px dashed #FF6B35 !important;
         border-radius: 12px;
         padding: 40px 20px;
-        min-height: 250px;
+        /* [수정됨] 높이를 250px -> 500px로 2배 늘림 */
+        min-height: 500px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -88,15 +88,15 @@ st.markdown("""
     }
     [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
     [data-testid="stFileUploaderDropzone"]::before {
-        content: "📄"; font-size: 4rem; margin-bottom: 15px; display: block;
+        content: "📄"; font-size: 5rem; margin-bottom: 20px; display: block; /* 아이콘도 약간 키움 */
     }
     [data-testid="stFileUploaderDropzone"]::after {
         content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
-        white-space: pre-wrap; font-size: 1.1rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 20px; font-weight: 600; line-height: 1.6;
     }
     [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzone"] small { display: none !important; }
     [data-testid="stFileUploaderDropzone"] button {
-        background-color: #FF6B35; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-weight: bold; order: 2;
+        background-color: #FF6B35; color: white; border: none; border-radius: 20px; padding: 10px 25px; font-weight: bold; order: 2; font-size: 1rem;
     }
     [data-testid="stFileUploaderDropzone"] button:hover { background-color: #e8590c; color: white; }
 </style>
