@@ -91,6 +91,25 @@ st.markdown("""
     .hl-yellow { background-color: #fff3bf; padding: 2px 4px; border-radius: 3px; }
     .hl-blue { color: #1971c2; font-weight: bold; }
     .hl-gray { color: #adb5bd; }
+
+    /* 파일 업로더 드래그앤드롭 스타일 */
+    [data-testid="stFileUploader"] {
+        background-color: #ffffff;
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+        transition: border-color 0.3s, background-color 0.3s;
+    }
+    [data-testid="stFileUploader"]:hover {
+        border-color: #FF6B35;
+        background-color: #fff8f5;
+    }
+    [data-testid="stFileUploader"] section {
+        padding: 0;
+    }
+    [data-testid="stFileUploader"] section > button {
+        color: #FF6B35;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,7 +175,7 @@ def read_file(file):
 # ==========================================
 # 3. 화면 구성
 # ==========================================
-st.markdown("<h1 style='text-align: center;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #FF6B35;'>MEDI-Quiz</h1>", unsafe_allow_html=True)
 
 if 'generated_quiz' not in st.session_state: st.session_state['generated_quiz'] = None
 if 'show_explanation' not in st.session_state: st.session_state['show_explanation'] = False
@@ -321,8 +340,7 @@ with tab4:
     col_upload1, col_upload2 = st.columns(2)
 
     with col_upload1:
-        st.subheader("📚 강의자료")
-        uploaded_summaries = st.file_uploader("PDF/PPT", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True)
+        uploaded_summaries = st.file_uploader("강의자료 업로드", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True, label_visibility="collapsed")
         if uploaded_summaries:
             all_texts = []
             for f in uploaded_summaries:
@@ -342,11 +360,19 @@ with tab4:
                         all_texts.append("\n".join(txt))
                     except: pass
             lecture_content = "\n\n".join(all_texts)
-            if lecture_content: st.success(f"읽기 성공 ({len(lecture_content)}자)")
+            if lecture_content: st.success(f"강의자료 읽기 성공! ({len(lecture_content)}자)")
+        else:
+            st.markdown("""
+            <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
+                        padding: 35px 20px; text-align: center; margin-bottom: 10px;">
+                <div style="font-size: 2.5rem; color: #adb5bd; margin-bottom: 10px;">&#128218;</div>
+                <div style="font-size: 1.1rem; font-weight: bold; color: #212529; margin-bottom: 6px;">강의자료가 없습니다</div>
+                <div style="font-size: 0.9rem; color: #868e96;">PDF / PPT 파일을 업로드하세요</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_upload2:
-        st.subheader("📝 족보")
-        uploaded_jokbo = st.file_uploader("PDF/Word", type=['pdf', 'docx'], key="jokbo_uploader")
+        uploaded_jokbo = st.file_uploader("족보 업로드", type=['pdf', 'docx'], key="jokbo_uploader", label_visibility="collapsed")
         if uploaded_jokbo:
             if uploaded_jokbo.name.endswith('.pdf'):
                 try:
@@ -358,7 +384,16 @@ with tab4:
                     doc = docx.Document(uploaded_jokbo)
                     jokbo_content = "\n".join([p.text for p in doc.paragraphs])
                 except: pass
-            if jokbo_content: st.success(f"읽기 성공 ({len(jokbo_content)}자)")
+            if jokbo_content: st.success(f"족보 읽기 성공! ({len(jokbo_content)}자)")
+        else:
+            st.markdown("""
+            <div style="border: 2px solid #dee2e6; border-radius: 12px; background-color: #ffffff;
+                        padding: 35px 20px; text-align: center; margin-bottom: 10px;">
+                <div style="font-size: 2.5rem; color: #adb5bd; margin-bottom: 10px;">&#128221;</div>
+                <div style="font-size: 1.1rem; font-weight: bold; color: #212529; margin-bottom: 6px;">족보가 없습니다</div>
+                <div style="font-size: 0.9rem; color: #868e96;">PDF / DOCX 파일을 업로드하세요</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.divider()
 
