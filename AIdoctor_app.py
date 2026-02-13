@@ -14,7 +14,7 @@ import pandas as pd
 from io import BytesIO
 from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
-from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_COLOR_INDEX
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import re
@@ -34,18 +34,11 @@ st.set_page_config(page_title="MEDI-Quiz", page_icon="🩺", layout="wide")
 # ==========================================
 st.markdown("""
 <style>
+    /* 1. 전체 폰트 및 기본 스타일 */
     .question-box {
         background-color: #f8f9fa; padding: 25px; border-radius: 12px; 
         border: 1px solid #e9ecef; margin-bottom: 25px; font-size: 1.1rem; line-height: 1.6;
     }
-    .option-row {
-        display: flex; align-items: center; margin-bottom: 10px; padding: 10px;
-        border-radius: 8px; transition: background-color 0.2s;
-    }
-    .option-row:hover { background-color: #f1f3f5; }
-    .option-text { flex-grow: 1; margin-left: 15px; font-size: 1rem; }
-    .eliminated { text-decoration: line-through; color: #adb5bd; }
-    .stButton button { width: 100%; }
     .options-box {
         background-color: #f8f9fa; padding: 20px; border-radius: 12px; 
         border: 1px solid #e9ecef; margin-bottom: 25px;
@@ -58,107 +51,93 @@ st.markdown("""
     .option-number {
         font-size: 1.1rem; font-weight: bold; margin-right: 15px; min-width: 30px;
     }
+    .eliminated { text-decoration: line-through; color: #adb5bd; }
     
-    /* 정리본 표 스타일 */
-    .summary-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-        font-size: 0.95rem;
-    }
-    .summary-table th {
-        background-color: #495057;
-        color: white;
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #dee2e6;
-        font-size: 1.1rem;
-    }
-    .summary-table td {
-        border: 1px solid #dee2e6;
-        padding: 10px;
-        vertical-align: top;
-    }
-    .summary-header {
-        background-color: #e9ecef;
-        font-weight: bold;
-        width: 20%;
-        text-align: center;
-        vertical-align: middle !important;
-    }
+    /* 2. 정리본 표 스타일 */
+    .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.95rem; }
+    .summary-table th { background-color: #495057; color: white; padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 1.1rem; }
+    .summary-table td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }
+    .summary-header { background-color: #e9ecef; font-weight: bold; width: 20%; text-align: center; vertical-align: middle !important; }
     
-    /* 하이라이트 스타일 */
+    /* 3. 하이라이트 스타일 */
     .hl-yellow { background-color: #fff3bf; padding: 2px 4px; border-radius: 3px; }
     .hl-blue { color: #1971c2; font-weight: bold; }
     .hl-gray { color: #adb5bd; }
 
-    /* ===== 탭 스타일: 4등분, 가운데정렬, 1.3rem ===== */
-    [data-testid="stTabs"] [role="tablist"] {
-        display: flex !important;
-        width: 100% !important;
+    /* 4. 탭 스타일 (4등분, 가운데 정렬) */
+    [data-testid="stTabs"] [role="tablist"] { display: flex !important; width: 100% !important; }
+    [data-testid="stTabs"] button[role="tab"] { flex: 1 1 25% !important; justify-content: center !important; }
+    [data-testid="stTabs"] button[role="tab"] p { font-size: 1.3rem !important; text-align: center !important; }
+
+    /* ================================================================= */
+    /* [핵심] 5. 파일 업로더 디자인 커스터마이징 (드롭존 스타일) */
+    /* ================================================================= */
+    
+    /* 업로더 컨테이너 */
+    [data-testid="stFileUploader"] {
+        margin-top: 20px;
     }
-    [data-testid="stTabs"] button[role="tab"] {
-        flex: 1 1 25% !important;
-        justify-content: center !important;
+    
+    /* 드롭존 영역 (박스) */
+    [data-testid="stFileUploaderDropzone"] {
+        background-color: #fff8f5;            /* 연한 주황색 배경 */
+        border: 2px dashed #FF6B35 !important; /* 주황색 점선 테두리 */
+        border-radius: 12px;
+        padding: 40px 20px;                   /* 안쪽 여백을 넉넉하게 줘서 높이 확보 */
+        min-height: 250px;                    /* 최소 높이 설정 */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        transition: background-color 0.3s;
     }
-    [data-testid="stTabs"] button[role="tab"] p {
-        font-size: 1.3rem !important;
-        text-align: center !important;
+    
+    /* 드롭존 호버 효과 */
+    [data-testid="stFileUploaderDropzone"]:hover {
+        background-color: #ffe8cc;
     }
 
-    /* ===== 파일 업로더 공통 ===== */
-    [data-testid="stFileUploader"] {
-        background-color: #ffffff;
-        border: 2px dashed #dee2e6;
-        border-radius: 12px;
-        padding: 15px 20px;
-        transition: border-color 0.3s, background-color 0.3s;
+    /* 아이콘 넣기 (::before 가상 요소 사용) */
+    [data-testid="stFileUploaderDropzone"]::before {
+        content: "📄";  /* 문서 아이콘 */
+        font-size: 4rem; /* 아이콘 크기 */
+        margin-bottom: 15px;
+        display: block;
     }
-    [data-testid="stFileUploader"]:hover {
-        border-color: #FF6B35;
-        background-color: #fff8f5;
+
+    /* 안내 문구 넣기 (::after 가상 요소 사용) */
+    [data-testid="stFileUploaderDropzone"]::after {
+        content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원"; /* \\A는 줄바꿈 */
+        white-space: pre-wrap; /* 줄바꿈 적용 */
+        font-size: 1.1rem;
+        color: #495057;
+        margin-top: 15px;
+        font-weight: 600;
+        line-height: 1.6;
     }
-    /* 라벨 가운데 정렬 (탭4용) */
-    [data-testid="stFileUploader"] label {
-        width: 100% !important;
-        text-align: center !important;
+
+    /* 기본으로 뜨는 지저분한 텍스트 숨기기 */
+    [data-testid="stFileUploaderDropzoneInstructions"], 
+    [data-testid="stFileUploaderDropzone"] small {
+         display: none !important;
     }
-    [data-testid="stFileUploader"] label p {
-        text-align: center !important;
-        font-size: 1.05rem !important;
-        font-weight: 600 !important;
-        color: #212529 !important;
-    }
-    /* 드롭존 테두리 제거 */
-    [data-testid="stFileUploaderDropzone"] {
-        border: none !important;
-        background: transparent !important;
-        padding: 10px !important;
-        display: flex !important;
-        justify-content: center !important;
-    }
-    /* ===== "Drag and drop" 텍스트, 파일크기 제한 텍스트 숨기기 ===== */
-    [data-testid="stFileUploaderDropzone"] span,
-    [data-testid="stFileUploaderDropzone"] small,
-    [data-testid="stFileUploaderDropzoneInstructions"] {
-        display: none !important;
-    }
-    /* Browse 버튼만 표시 */
+
+    /* 'Browse files' 버튼 스타일 */
     [data-testid="stFileUploaderDropzone"] button {
-        display: inline-flex !important;
-        color: #FF6B35 !important;
-        border-color: #FF6B35 !important;
-    }
-    [data-testid="stFileUploaderDropzone"] button span {
-        display: inline !important;
+        background-color: #FF6B35;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 8px 20px;
+        font-weight: bold;
+        order: 2; /* 버튼 순서 조정 (아이콘과 텍스트 사이로) */
     }
     [data-testid="stFileUploaderDropzone"] button:hover {
-        background-color: #FF6B35 !important;
-        color: white !important;
+        background-color: #e8590c;
+        color: white;
     }
-    [data-testid="stFileUploaderDropzone"] button:hover span {
-        color: white !important;
-    }
+    
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,7 +145,6 @@ st.markdown("""
 # 2. 백엔드 함수들
 # ==========================================
 
-# 워드 표 셀 배경색 설정을 위한 함수 (XML 조작)
 def set_cell_background(cell, color_hex):
     cell_properties = cell._element.get_or_add_tcPr()
     shading_elm = OxmlElement('w:shd')
@@ -237,17 +215,10 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고�
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    # 파일 없을 때 커스텀 플레이스홀더
-    if st.session_state.get('tab1_uploader') is None:
-        st.markdown("""
-        <div style="text-align: center; padding: 30px 20px 5px;">
-            <div style="font-size: 3rem; color: #adb5bd; margin-bottom: 12px;">&#128196;</div>
-            <div style="font-size: 1.3rem; font-weight: bold; color: #212529; margin-bottom: 8px;">학습 자료가 없습니다</div>
-            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 4px;">PDF / PPT / DOCX 를 업로드하여 시작하세요</div>
-            <div style="font-size: 0.95rem; color: #868e96; margin-bottom: 5px;">AI가 학습 자료를 분석해 연습 문제를 생성해요</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # (수정됨) 기존의 복잡한 HTML 텍스트 코드는 제거하고, 깔끔하게 업로더만 남김
+    # CSS에서 디자인을 모두 처리했으므로 여기서는 label_visibility="collapsed"로 라벨만 숨깁니다.
     uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
+    
     study_content = read_file(uploaded_file) if uploaded_file else ""
     if uploaded_file and study_content:
         st.success(f"파일 읽기 성공! ({len(study_content)}자)")
@@ -388,7 +359,8 @@ with tab4:
     col_upload1, col_upload2 = st.columns(2)
 
     with col_upload1:
-        uploaded_summaries = st.file_uploader("📚  강의자료 업로드  ·  PDF / PPT", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True)
+        # label_visibility="collapsed"로 설정하여 기본 텍스트 숨김 (CSS로 디자인 대체)
+        uploaded_summaries = st.file_uploader("강의자료 업로드", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True, label_visibility="collapsed")
         if uploaded_summaries:
             all_texts = []
             for f in uploaded_summaries:
@@ -411,7 +383,8 @@ with tab4:
             if lecture_content: st.success(f"강의자료 읽기 성공! ({len(lecture_content)}자)")
 
     with col_upload2:
-        uploaded_jokbo = st.file_uploader("📝  족보 업로드  ·  PDF / DOCX", type=['pdf', 'docx'], key="jokbo_uploader")
+        # label_visibility="collapsed"로 설정
+        uploaded_jokbo = st.file_uploader("족보 업로드", type=['pdf', 'docx'], key="jokbo_uploader", label_visibility="collapsed")
         if uploaded_jokbo:
             if uploaded_jokbo.name.endswith('.pdf'):
                 try:
@@ -430,7 +403,6 @@ with tab4:
     if st.button("📋 통합 표 정리본 생성", type="primary", use_container_width=True, disabled=not bool(lecture_content)):
         with st.spinner("AI가 강의와 족보를 분석하여 표를 만들고 있습니다..."):
             try:
-                # 프롬프트: JSON 구조를 "Topic" -> "Subsections" 형태로 변경
                 prompt = f"""
                 당신은 의대 학습 정리 전문가입니다.
                 강의자료를 메인 주제(질환 등)별로 나누고, 각 주제 하위에 소주제(임상양상, 진단, 치료 등)를 포함한 표 형태로 정리하세요.
