@@ -187,7 +187,7 @@ if 'summary_data' not in st.session_state: st.session_state['summary_data'] = No
 tab4, tab1, tab2, tab3 = st.tabs(["📋 정리본 형성", "📝 문제 생성", "🧠 실전 모의고사", "🗂️ 문제 관리"])
 
 # ==========================================
-# [탭 1] 문제 생성 (프롬프트 강력 수정)
+# [탭 1] 문제 생성 (AI 쫄보 방지 및 5문제 강제 출제)
 # ==========================================
 with tab1:
     quiz_note_content = ""
@@ -222,52 +222,51 @@ with tab1:
     has_jokbo = bool(quiz_jokbo_content)
 
     if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not bool(quiz_note_content)):
-        spinner_msg = "족보의 출제 스타일을 분석하여 정리본에서 문제를 추출하고 있습니다..." if has_jokbo else "정리본을 바탕으로 문제를 만들고 있습니다..."
+        spinner_msg = "족보의 형식을 벤치마킹하여 정리본에서 5문제를 꽉 채워 출제 중입니다..." if has_jokbo else "정리본을 바탕으로 5문제를 만들고 있습니다..."
         with st.spinner(spinner_msg):
             try:
                 if has_jokbo:
-                    # [핵심] 내용(정리본)과 형식(족보)을 철저히 분리하도록 지시문을 대폭 강화
+                    # [핵심] "하지 마라" 대신 "반드시 5개를 만들어라"를 강조하는 프롬프트
                     prompt = f"""
-                    당신은 의대 시험 출제 위원입니다. 아래 [제1원칙]을 절대적으로 준수하세요.
+                    당신은 의대 국가고시 전문 출제 위원입니다. 
+                    아래 [정리본]의 내용을 바탕으로 객관식 문제 5개를 **반드시** 출제해야 합니다.
 
-                    [제1원칙: 출제 범위의 제한]
-                    - 문제의 '주제', '내용', '정답', '오답 선지'는 반드시 [정리본]에 있는 내용으로만 구성해야 합니다.
-                    - [족보]에 등장하는 질환이나 개념이라도, [정리본]에 없는 내용이라면 절대 문제로 내지 마세요.
+                    [출제 지시사항]
+                    1. 출제 소스 (가장 중요): 문제의 상황, 질문, 정답, 그리고 오답 보기들까지 모든 텍스트의 근거는 오직 [정리본] 안에서만 가져오세요.
+                    2. 출제 스타일: [족보]의 텍스트를 분석하여, 환자 케이스형인지 단순 지식형인지 파악하고 그 문체와 형식을 그대로 흉내 내세요. (보기의 개수도 족보와 맞출 것)
+                    3. 목표: "내용은 정리본 100%, 껍데기(형식과 말투)는 족보 100%"인 문제를 딱 5개 만들어내는 것입니다.
 
-                    [제2원칙: 족보의 활용 목적]
-                    - [족보]는 오직 '문제의 껍데기(형식)'를 베끼는 용도로만 씁니다.
-                    - 족보가 환자의 나이/성별/증상을 주는 '임상 증례형'인지, 개념을 직접 묻는 '단순 문답형'인지 파악하세요.
-                    - 족보의 선지 길이, 함정을 파는 방식, 난이도, 선지 개수(4지/5지선다)를 파악하고 그 스타일을 그대로 모방하세요.
-
-                    [출제 자료]
-                    1. 출제 범위 및 내용 (절대 준수):
+                    [정리본] (이 내용으로만 문제를 만드세요)
                     {quiz_note_content[:15000]}
 
-                    2. 출제 스타일 참고용 족보 (내용 인용 금지):
+                    [족보] (문체와 형식만 참고하세요)
                     {quiz_jokbo_content[:20000]}
 
-                    [출력] 반드시 JSON 배열 형식으로만 출력하세요:
+                    [출력 형식]
+                    반드시 5개의 딕셔너리를 가진 JSON 배열 형식으로만 출력하세요.
                     [
-                        {{"question": "질문", "options": ["보기1", "보기2", ...], "correct_index": 0, "explanation": "해설"}}, ...
+                        {{"question": "질문", "options": ["보기1", "보기2", ...], "correct_index": 0, "explanation": "해설"}}, 
+                        ... (총 5개)
                     ]
                     """
                 else:
                     prompt = f"""
-                    당신은 의대 시험 출제 위원입니다.
-                    아래 [정리본] 내용만을 바탕으로 5지선다형 객관식 문제 5개를 만드세요.
-                    [정리본]에 없는 내용은 절대 선지나 정답으로 출제하지 마세요.
+                    당신은 의대 국가고시 전문 출제 위원입니다.
+                    아래 [정리본] 내용만을 바탕으로 5지선다형 객관식 문제 5개를 **반드시** 만드세요.
                     핵심 개념을 정확히 이해했는지 확인할 수 있는 임상 사례형 또는 개념 확인형 문제를 출제하세요.
 
                     [정리본] 
                     {quiz_note_content[:15000]}
 
-                    [출력] 반드시 JSON 배열 형식으로만 출력하세요:
+                    [출력 형식]
+                    반드시 5개의 딕셔너리를 가진 JSON 배열 형식으로만 출력하세요.
                     [
-                        {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
+                        {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}},
+                        ... (총 5개)
                     ]
                     """
                 
-                # 강제 JSON 출력 옵션
+                # 강제 JSON 출력 옵션 유지
                 response = client.models.generate_content(
                     model=MODEL, 
                     contents=prompt,
@@ -276,19 +275,19 @@ with tab1:
                 
                 quizzes = json.loads(response.text)
 
-                if isinstance(quizzes, list):
+                if isinstance(quizzes, list) and len(quizzes) > 0:
                     for quiz in quizzes:
                         save_card_to_file(quiz['question'], quiz['options'], quiz['correct_index'], quiz['explanation'])
-                    st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다!")
+                    st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다! '실전 모의고사' 탭에서 확인하세요.")
                 else: 
-                    st.error("형식 오류: 반환된 데이터가 리스트(배열) 형식이 아닙니다.")
+                    st.error("형식 오류: AI가 문제를 생성하지 못하고 빈 배열을 반환했습니다. 정리본 내용을 조금 더 추가해 보세요.")
             except json.JSONDecodeError:
                 st.error("AI가 올바른 형식(JSON)으로 문제를 만들지 못했습니다. 다시 시도해 주세요.")
                 with st.expander("AI 응답 원본 확인 (디버깅용)"):
                     st.write(response.text if 'response' in locals() else "응답 없음")
             except Exception as e: 
                 st.error(f"오류: {e}")
-                
+
 # ==========================================
 # [탭 2] 실전 모의고사
 # ==========================================
