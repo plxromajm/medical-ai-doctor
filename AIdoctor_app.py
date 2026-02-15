@@ -166,10 +166,17 @@ def read_file(file):
     try:
         if file.name.endswith('.pdf'):
             reader = PdfReader(file)
-            return "\n".join([page.extract_text() for page in reader.pages])
+            return "\n".join([page.extract_text() or "" for page in reader.pages])
         elif file.name.endswith('.docx'):
             doc = docx.Document(file)
-            return "\n".join([para.text for para in doc.paragraphs])
+            texts = []
+            for para in doc.paragraphs:
+                if para.text.strip(): texts.append(para.text)
+            for table in doc.tables:
+                for row in table.rows:
+                    row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_texts: texts.append(" | ".join(row_texts))
+            return "\n".join(texts)
     except: return ""
     return ""
 
