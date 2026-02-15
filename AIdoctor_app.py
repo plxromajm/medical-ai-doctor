@@ -81,22 +81,6 @@ st.markdown("""
         transition: background-color 0.3s;
     }
     [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
-    /* 첫 번째 컬럼 업로더 (정리본/강의자료) */
-    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::before {
-        content: "📝"; font-size: 5rem; margin-bottom: 10px; display: block;
-    }
-    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::after {
-        content: "생성한 나만의 정리본을 업로드하세요";
-        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
-    }
-    /* 두 번째 컬럼 업로더 (족보) */
-    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::before {
-        content: "🏆"; font-size: 5rem; margin-bottom: 10px; display: block;
-    }
-    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::after {
-        content: "족보 (선택사항)\\A이곳에 드래그하거나 선택하세요\\A PDF / DOCX 지원";
-        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
-    }
     [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzone"] small { display: none !important; }
     [data-testid="stFileUploaderDropzone"] button {
         background-color: #FF6B35; color: white; border: none; border-radius: 20px; padding: 10px 25px; font-weight: bold; order: 2; font-size: 1rem;
@@ -190,6 +174,22 @@ tab4, tab1, tab2, tab3 = st.tabs(["📋 정리본 형성", "📝 문제 생성",
 # [탭 1] 문제 생성 (AI 쫄보 방지 및 5문제 강제 출제)
 # ==========================================
 with tab1:
+    st.markdown("""<style>
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(2) [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "📝"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(2) [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "생성한 나만의 정리본을 업로드하세요";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(2) [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "🏆"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(2) [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "족보 (선택사항)\\A이곳에 드래그하거나 선택하세요\\A PDF / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    </style>""", unsafe_allow_html=True)
     quiz_note_content = ""
     quiz_jokbo_content = ""
     col_q1, col_q2 = st.columns(2)
@@ -367,6 +367,22 @@ with tab3:
 # [탭 4] 정리본 형성
 # ==========================================
 with tab4:
+    st.markdown("""<style>
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(1) [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "📄"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(1) [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(1) [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "🏆"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"]:nth-child(1) [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "족보를 이곳에 드래그하거나 선택하세요\\A PDF / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    </style>""", unsafe_allow_html=True)
     lecture_content = ""
     jokbo_content = ""
     col_upload1, col_upload2 = st.columns(2)
