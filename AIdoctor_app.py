@@ -81,6 +81,20 @@ st.markdown("""
         transition: background-color 0.3s;
     }
     [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
+    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "📝"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "정리본 / 강의자료를 업로드하세요";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "🏆"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "족보 (선택사항)";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
     [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzone"] small { display: none !important; }
     [data-testid="stFileUploaderDropzone"] button {
         background-color: #FF6B35; color: white; border: none; border-radius: 20px; padding: 10px 25px; font-weight: bold; order: 2; font-size: 1rem;
@@ -179,7 +193,6 @@ with tab1:
     col_q1, col_q2 = st.columns(2)
 
     with col_q1:
-        st.markdown('<div style="text-align:center; padding:15px 0;"><div style="font-size:4rem;">📝</div><div style="font-size:1.2rem; font-weight:600; color:#495057; margin-top:5px;">생성한 나만의 정리본을 업로드하세요</div></div>', unsafe_allow_html=True)
         quiz_note_file = st.file_uploader("정리본 업로드", type=['docx', 'pdf', 'pptx'], key="quiz_note_uploader", label_visibility="collapsed")
         if quiz_note_file:
             if quiz_note_file.name.endswith('.pptx'):
@@ -198,7 +211,6 @@ with tab1:
 
 
     with col_q2:
-        st.markdown('<div style="text-align:center; padding:15px 0;"><div style="font-size:4rem;">🏆</div><div style="font-size:1.2rem; font-weight:600; color:#495057; margin-top:5px;">족보 (선택사항)</div></div>', unsafe_allow_html=True)
         quiz_jokbo_file = st.file_uploader("족보 업로드", type=['docx', 'pdf'], key="quiz_jokbo_uploader", label_visibility="collapsed")
         if quiz_jokbo_file:
             quiz_jokbo_content = read_file(quiz_jokbo_file)
@@ -359,7 +371,6 @@ with tab4:
     col_upload1, col_upload2 = st.columns(2)
 
     with col_upload1:
-        st.markdown('<div style="text-align:center; padding:15px 0;"><div style="font-size:4rem;">📄</div><div style="font-size:1.2rem; font-weight:600; color:#495057; margin-top:5px;">자료를 이곳에 드래그하거나 선택하세요<br><span style="font-size:0.9rem;">PDF / PPT / DOCX 지원</span></div></div>', unsafe_allow_html=True)
         uploaded_summaries = st.file_uploader("강의자료 업로드", type=['pdf', 'pptx'], key="summary_uploader", accept_multiple_files=True, label_visibility="collapsed")
         if uploaded_summaries:
             all_texts = []
@@ -384,7 +395,6 @@ with tab4:
 
 
     with col_upload2:
-        st.markdown('<div style="text-align:center; padding:15px 0;"><div style="font-size:4rem;">🏆</div><div style="font-size:1.2rem; font-weight:600; color:#495057; margin-top:5px;">족보를 이곳에 드래그하거나 선택하세요<br><span style="font-size:0.9rem;">PDF / DOCX 지원</span></div></div>', unsafe_allow_html=True)
         uploaded_jokbo = st.file_uploader("족보 업로드", type=['pdf', 'docx'], key="jokbo_uploader", label_visibility="collapsed")
         if uploaded_jokbo:
             if uploaded_jokbo.name.endswith('.pdf'):
