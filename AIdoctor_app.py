@@ -226,9 +226,13 @@ with tab1:
             try:
                 if has_jokbo:
                     prompt = f"""
-                    다음 [정리본]의 의학 내용을 바탕으로 객관식 문제 5개를 만드세요.
-                    [족보]는 문제의 형식(문체, 보기 개수, 케이스형/지식형 등)만 참고하세요.
-                    문제와 보기의 내용은 반드시 [정리본]에 있는 의학 지식에서 출제하세요.
+                    아래는 의대생이 공부한 정리본입니다. 이 학생이 정리본의 내용을 제대로 암기했는지 테스트하는 객관식 문제 5개를 만드세요.
+
+                    [규칙]
+                    - 정리본에 직접 나오는 질환명, 증상, 진단법, 치료법, 수치 등을 묻는 문제를 만드세요.
+                    - "만약~했다면", "어떤 유형의 지식을~" 같은 메타 질문은 절대 만들지 마세요.
+                    - 예시: "~의 1차 치료제는?", "~에서 나타나는 특징적 소견은?", "~의 진단 기준으로 옳은 것은?"
+                    - [족보]의 문제 형식(문체, 보기 개수)만 참고하세요.
 
                     [정리본]
                     {quiz_note_content[:15000]}
@@ -241,7 +245,12 @@ with tab1:
                     """
                 else:
                     prompt = f"""
-                    다음 [정리본]의 의학 내용을 바탕으로 5지선다형 객관식 문제 5개를 만드세요.
+                    아래는 의대생이 공부한 정리본입니다. 이 학생이 정리본의 내용을 제대로 암기했는지 테스트하는 5지선다형 객관식 문제 5개를 만드세요.
+
+                    [규칙]
+                    - 정리본에 직접 나오는 질환명, 증상, 진단법, 치료법, 수치 등을 묻는 문제를 만드세요.
+                    - "만약~했다면", "어떤 유형의 지식을~" 같은 메타 질문은 절대 만들지 마세요.
+                    - 예시: "~의 1차 치료제는?", "~에서 나타나는 특징적 소견은?", "~의 진단 기준으로 옳은 것은?"
 
                     [정리본]
                     {quiz_note_content[:15000]}
@@ -349,18 +358,36 @@ with tab3:
     if not cards: st.write("저장된 문제가 없습니다.")
     else:
         circle_numbers = ["①", "②", "③", "④", "⑤"]
+        selected_for_delete = []
+
         for i, card in enumerate(cards):
-            with st.expander(f"#{i+1}. {card['question'][:40]}..."):
-                st.markdown(f'<div class="question-box">**Q.** {card["question"]}</div>', unsafe_allow_html=True)
-                st.markdown('<div class="options-box">', unsafe_allow_html=True)
-                for opt_i, opt_text in enumerate(card['options']):
-                    if opt_i == card['correct_index']:
-                        st.markdown(f'<div class="option-item" style="background-color: #e7f5ff;"><span class="option-number" style="color: #1971c2;">{circle_numbers[opt_i]}</span><span style="color: #1971c2; font-weight: bold;">{opt_text}</span></div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<div class="option-item"><span class="option-number">{circle_numbers[opt_i]}</span><span>{opt_text}</span></div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.caption(f"💡 해설: {card['explanation']}")
-                if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
+            col_exp, col_chk = st.columns([20, 1])
+            with col_exp:
+                with st.expander(f"#{i+1}. {card['question'][:50]}..."):
+                    st.markdown(f'<div class="question-box">**Q.** {card["question"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="options-box">', unsafe_allow_html=True)
+                    for opt_i, opt_text in enumerate(card['options']):
+                        if opt_i == card['correct_index']:
+                            st.markdown(f'<div class="option-item" style="background-color: #e7f5ff;"><span class="option-number" style="color: #1971c2;">{circle_numbers[opt_i]}</span><span style="color: #1971c2; font-weight: bold;">{opt_text}</span></div>', unsafe_allow_html=True)
+                        else:
+                            st.markdown(f'<div class="option-item"><span class="option-number">{circle_numbers[opt_i]}</span><span>{opt_text}</span></div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.caption(f"💡 해설: {card['explanation']}")
+            with col_chk:
+                if st.checkbox("", key=f"chk_{i}", label_visibility="collapsed"):
+                    selected_for_delete.append(i)
+
+        st.divider()
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            if st.button(f"🗑️ 선택 삭제 ({len(selected_for_delete)}개)", type="primary", use_container_width=True, disabled=len(selected_for_delete) == 0):
+                remaining = [c for i, c in enumerate(cards) if i not in selected_for_delete]
+                save_all_cards(remaining)
+                st.rerun()
+        with col_btn2:
+            if st.button("🗑️ 전체 삭제", type="secondary", use_container_width=True):
+                save_all_cards([])
+                st.rerun()
 
 # ==========================================
 # [탭 4] 정리본 형성
