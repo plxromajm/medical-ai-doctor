@@ -81,12 +81,21 @@ st.markdown("""
         transition: background-color 0.3s;
     }
     [data-testid="stFileUploaderDropzone"]:hover { background-color: #ffe8cc; }
-    [data-testid="stFileUploaderDropzone"]::before {
-        content: "📄"; font-size: 5rem; margin-bottom: 20px; display: block;
+    /* 첫 번째 컬럼 업로더 (정리본/강의자료) */
+    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "📝"; font-size: 5rem; margin-bottom: 10px; display: block;
     }
-    [data-testid="stFileUploaderDropzone"]::after {
-        content: "자료를 이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
-        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 20px; font-weight: 600; line-height: 1.6;
+    [data-testid="stColumn"]:first-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "정리본 / 강의자료\\A이곳에 드래그하거나 선택하세요\\A PDF / PPT / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
+    }
+    /* 두 번째 컬럼 업로더 (족보) */
+    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::before {
+        content: "🏆"; font-size: 5rem; margin-bottom: 10px; display: block;
+    }
+    [data-testid="stColumn"]:last-child [data-testid="stFileUploaderDropzone"]::after {
+        content: "족보 (선택사항)\\A이곳에 드래그하거나 선택하세요\\A PDF / DOCX 지원";
+        white-space: pre-wrap; font-size: 1.2rem; color: #495057; margin-top: 15px; font-weight: 600; line-height: 1.6;
     }
     [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzone"] small { display: none !important; }
     [data-testid="stFileUploaderDropzone"] button {
@@ -190,7 +199,6 @@ with tab1:
     col_q1, col_q2 = st.columns(2)
 
     with col_q1:
-        st.markdown("**📄 정리본 업로드**")
         quiz_note_file = st.file_uploader("정리본 업로드", type=['docx', 'pdf', 'pptx'], key="quiz_note_uploader", label_visibility="collapsed")
         if quiz_note_file:
             if quiz_note_file.name.endswith('.pptx'):
@@ -208,7 +216,6 @@ with tab1:
                 st.success(f"정리본 읽기 성공! ({len(quiz_note_content)}자)")
 
     with col_q2:
-        st.markdown("**📚 족보 업로드**")
         quiz_jokbo_file = st.file_uploader("족보 업로드", type=['docx', 'pdf'], key="quiz_jokbo_uploader", label_visibility="collapsed")
         if quiz_jokbo_file:
             quiz_jokbo_content = read_file(quiz_jokbo_file)
@@ -216,30 +223,45 @@ with tab1:
                 st.success(f"족보 읽기 성공! ({len(quiz_jokbo_content)}자)")
 
     st.divider()
-    both_uploaded = bool(quiz_note_content) and bool(quiz_jokbo_content)
+    has_jokbo = bool(quiz_jokbo_content)
 
-    if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not both_uploaded):
-        with st.spinner("족보 출제 경향을 분석하여 문제를 만들고 있습니다..."):
+    if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not bool(quiz_note_content)):
+        spinner_msg = "족보 출제 경향을 분석하여 문제를 만들고 있습니다..." if has_jokbo else "정리본을 바탕으로 문제를 만들고 있습니다..."
+        with st.spinner(spinner_msg):
             try:
-                prompt = f"""
-                당신은 시험 문제 출제 전문가입니다.
-                아래 [족보]의 출제 경향(문제 형식, 선지 구성, 난이도, 출제 스타일)을 먼저 분석한 뒤,
-                [정리본] 내용을 바탕으로 족보와 동일한 스타일의 객관식 문제 5개를 만드세요.
+                if has_jokbo:
+                    prompt = f"""
+                    당신은 시험 문제 출제 전문가입니다.
+                    아래 [족보]의 출제 경향(문제 형식, 선지 구성, 난이도, 출제 스타일)을 먼저 분석한 뒤,
+                    [정리본] 내용을 바탕으로 족보와 동일한 스타일의 객관식 문제 5개를 만드세요.
 
-                [분석 포인트]
-                - 족보가 5지선다인지 4지선다인지 파악하여 동일하게 출제
-                - 단순 암기형인지, 임상 시나리오형인지, 비교/구분형인지 등 문제 유형 파악
-                - 선지의 길이, 구체성, 함정 패턴 등을 모방
-                - 국시 스타일이 아닐 수도 있으니, 족보 원본의 스타일을 최대한 따를 것
+                    [분석 포인트]
+                    - 족보가 5지선다인지 4지선다인지 파악하여 동일하게 출제
+                    - 단순 암기형인지, 임상 시나리오형인지, 비교/구분형인지 등 문제 유형 파악
+                    - 선지의 길이, 구체성, 함정 패턴 등을 모방
+                    - 국시 스타일이 아닐 수도 있으니, 족보 원본의 스타일을 최대한 따를 것
 
-                [정리본] {quiz_note_content[:15000]}
-                [족보] {quiz_jokbo_content[:20000]}
+                    [정리본] {quiz_note_content[:15000]}
+                    [족보] {quiz_jokbo_content[:20000]}
 
-                [출력] 반드시 JSON 배열 형식으로 출력하세요. 선지 개수는 족보 분석 결과에 맞추세요:
-                [
-                    {{"question": "질문", "options": ["보기1", "보기2", ...], "correct_index": 0, "explanation": "해설"}}, ...
-                ]
-                """
+                    [출력] 반드시 JSON 배열 형식으로 출력하세요. 선지 개수는 족보 분석 결과에 맞추세요:
+                    [
+                        {{"question": "질문", "options": ["보기1", "보기2", ...], "correct_index": 0, "explanation": "해설"}}, ...
+                    ]
+                    """
+                else:
+                    prompt = f"""
+                    당신은 시험 문제 출제 전문가입니다.
+                    아래 [정리본] 내용을 바탕으로 5지선다형 객관식 문제 5개를 만드세요.
+                    핵심 개념을 정확히 이해했는지 확인할 수 있는 문제를 출제하세요.
+
+                    [정리본] {quiz_note_content[:15000]}
+
+                    [출력] 반드시 JSON 배열 형식:
+                    [
+                        {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
+                    ]
+                    """
                 response = client.models.generate_content(model=MODEL, contents=prompt)
                 quizzes = json.loads(response.text.replace("```json", "").replace("```", ""))
 
