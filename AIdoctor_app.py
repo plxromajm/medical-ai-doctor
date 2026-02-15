@@ -16,7 +16,7 @@ from docx import Document as DocxDocument
 from docx.shared import Cm, Pt, RGBColor
 from docx.enum.text import WD_COLOR_INDEX, WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT 
-from docx.oxml.ns import qn # [중요] 한글 폰트 적용을 위한 필수 모듈
+from docx.oxml.ns import qn 
 from docx.oxml import OxmlElement
 import re
 
@@ -257,26 +257,21 @@ with tab1:
                         {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
                     ]
                     """
-                response = client.models.generate_content(model=MODEL, contents=prompt)
+                # [핵심 수정] 무조건 JSON 형식으로만 강제 출력하도록 설정 추가
+                response = client.models.generate_content(
+                    model=MODEL, 
+                    contents=prompt,
+                    config={"response_mime_type": "application/json"}
+                )
                 
-                # [오류 방지 코드 추가] AI 응답에서 JSON 데이터만 안전하게 추출
-                raw_text = response.text.strip()
-                clean_text = re.sub(r'```json|```', '', raw_text).strip()
-                
-                # 대괄호 [ ] 안의 내용만 추출하여 찌꺼기 텍스트 걸러내기
-                start_idx = clean_text.find('[')
-                end_idx = clean_text.rfind(']')
-                if start_idx != -1 and end_idx != -1:
-                    clean_text = clean_text[start_idx:end_idx+1]
-                
-                quizzes = json.loads(clean_text)
+                quizzes = json.loads(response.text)
 
                 if isinstance(quizzes, list):
                     for quiz in quizzes:
                         save_card_to_file(quiz['question'], quiz['options'], quiz['correct_index'], quiz['explanation'])
                     st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다!")
                 else: 
-                    st.error("형식 오류")
+                    st.error("형식 오류: 반환된 데이터가 리스트(배열) 형식이 아닙니다.")
             except json.JSONDecodeError:
                 st.error("AI가 올바른 형식(JSON)으로 문제를 만들지 못했습니다. 다시 시도해 주세요.")
                 with st.expander("AI 응답 원본 확인 (디버깅용)"):
@@ -460,18 +455,14 @@ with tab4:
                   ...
                 ]
                 """
-                response = client.models.generate_content(model=MODEL, contents=prompt)
+                # [핵심 수정] 무조건 JSON 형식으로만 강제 출력하도록 설정 추가
+                response = client.models.generate_content(
+                    model=MODEL, 
+                    contents=prompt,
+                    config={"response_mime_type": "application/json"}
+                )
                 
-                # [오류 방지 코드 추가] AI 응답 정제 로직
-                raw_text = response.text.strip()
-                clean_text = re.sub(r'```json|```', '', raw_text).strip()
-                
-                start_idx = clean_text.find('[')
-                end_idx = clean_text.rfind(']')
-                if start_idx != -1 and end_idx != -1:
-                    clean_text = clean_text[start_idx:end_idx+1]
-                
-                st.session_state['summary_data'] = json.loads(clean_text)
+                st.session_state['summary_data'] = json.loads(response.text)
                 st.rerun()
                 
             except json.JSONDecodeError:
