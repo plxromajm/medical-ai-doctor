@@ -24,7 +24,7 @@ import re
 # 1. 프로그램 기본 설정
 # ==========================================
 # [주의] 배포 시에는 st.secrets를 사용하세요.
-GOOGLE_API_KEY = "AIzaSyA4xWRH8HnIWmAWAOnU1D9w8eNoOGYJsMM" 
+GOOGLE_API_KEY = "st.secrets" 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 MODEL = 'gemini-2.5-flash'
 DB_FILE = "medical_flashcards.json"
