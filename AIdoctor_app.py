@@ -109,25 +109,22 @@ st.markdown("""
 # 2. 백엔드 함수들
 # ==========================================
 
-# 워드 표 셀 배경색 설정을 위한 함수 (XML 조작)
 def set_cell_background(cell, color_hex):
     cell_properties = cell._element.get_or_add_tcPr()
     shading_elm = OxmlElement('w:shd')
     shading_elm.set(qn('w:fill'), color_hex)
     cell_properties.append(shading_elm)
 
-# [NEW] 한글 폰트(맑은 고딕)와 사이즈(9pt)를 강제로 적용하는 함수
 def set_font_style(run, font_name='맑은 고딕', font_size=9, is_bold=False):
     run.font.name = font_name
     run.font.size = Pt(font_size)
     run.bold = is_bold
-    # 한글 폰트 적용을 위해 XML 속성(w:eastAsia)을 직접 설정
     r = run._element
     rPr = r.get_or_add_rPr()
     fonts = OxmlElement('w:rFonts')
-    fonts.set(qn('w:eastAsia'), font_name) # 한글
-    fonts.set(qn('w:ascii'), font_name)    # 영문
-    fonts.set(qn('w:hAnsi'), font_name)    # 기타
+    fonts.set(qn('w:eastAsia'), font_name) 
+    fonts.set(qn('w:ascii'), font_name)    
+    fonts.set(qn('w:hAnsi'), font_name)    
     rPr.append(fonts)
 
 def load_cards():
@@ -186,7 +183,6 @@ st.markdown("<h1 style='text-align: center; color: #FF6B35; font-size: 3.2rem; m
 if 'generated_quiz' not in st.session_state: st.session_state['generated_quiz'] = None
 if 'show_explanation' not in st.session_state: st.session_state['show_explanation'] = False
 if 'summary_data' not in st.session_state: st.session_state['summary_data'] = None
-if 'user_style' not in st.session_state: st.session_state['user_style'] = ""
 
 tab4, tab1, tab2, tab3 = st.tabs(["📋 정리본 형성", "📝 문제 생성", "🧠 실전 모의고사", "🗂️ 문제 관리"])
 
@@ -239,7 +235,6 @@ with tab1:
                     - 족보가 5지선다인지 4지선다인지 파악하여 동일하게 출제
                     - 단순 암기형인지, 임상 시나리오형인지, 비교/구분형인지 등 문제 유형 파악
                     - 선지의 길이, 구체성, 함정 패턴 등을 모방
-                    - 국시 스타일이 아닐 수도 있으니, 족보 원본의 스타일을 최대한 따를 것
 
                     [정리본] {quiz_note_content[:15000]}
                     [족보] {quiz_jokbo_content[:20000]}
@@ -263,14 +258,31 @@ with tab1:
                     ]
                     """
                 response = client.models.generate_content(model=MODEL, contents=prompt)
-                quizzes = json.loads(response.text.replace("```json", "").replace("```", ""))
+                
+                # [오류 방지 코드 추가] AI 응답에서 JSON 데이터만 안전하게 추출
+                raw_text = response.text.strip()
+                clean_text = re.sub(r'```json|```', '', raw_text).strip()
+                
+                # 대괄호 [ ] 안의 내용만 추출하여 찌꺼기 텍스트 걸러내기
+                start_idx = clean_text.find('[')
+                end_idx = clean_text.rfind(']')
+                if start_idx != -1 and end_idx != -1:
+                    clean_text = clean_text[start_idx:end_idx+1]
+                
+                quizzes = json.loads(clean_text)
 
                 if isinstance(quizzes, list):
                     for quiz in quizzes:
                         save_card_to_file(quiz['question'], quiz['options'], quiz['correct_index'], quiz['explanation'])
                     st.success(f"✅ {len(quizzes)}개 문제가 생성되어 저장되었습니다!")
-                else: st.error("형식 오류")
-            except Exception as e: st.error(f"오류: {e}")
+                else: 
+                    st.error("형식 오류")
+            except json.JSONDecodeError:
+                st.error("AI가 올바른 형식(JSON)으로 문제를 만들지 못했습니다. 다시 시도해 주세요.")
+                with st.expander("AI 응답 원본 확인 (디버깅용)"):
+                    st.write(response.text if 'response' in locals() else "응답 없음")
+            except Exception as e: 
+                st.error(f"오류: {e}")
 
 # ==========================================
 # [탭 2] 실전 모의고사
@@ -363,20 +375,9 @@ with tab3:
                 if st.button("🗑️ 삭제", key=f"del_{i}", type="secondary"): delete_card(i); st.rerun()
 
 # ==========================================
-# [탭 4] 정리본 형성 (최종: 맑은고딕 9pt)
+# [탭 4] 정리본 형성
 # ==========================================
 with tab4:
-    st.info("강의자료와 족보를 업로드하면 주제별 표 형식의 정리본을 만듭니다.")
-    
-    st.markdown("""
-    <div style="background-color:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px;">
-        <b>색상 범례:</b>&nbsp;&nbsp;
-        <span class="hl-yellow">■ 정답 선지</span>&nbsp;&nbsp;
-        <span class="hl-blue">■ 족보 출제(강의 관련)</span>&nbsp;&nbsp;
-        <span class="hl-gray">■ 족보 출제(강의 무관)</span>
-    </div>
-    """, unsafe_allow_html=True)
-
     lecture_content = ""
     jokbo_content = ""
     col_upload1, col_upload2 = st.columns(2)
@@ -460,9 +461,25 @@ with tab4:
                 ]
                 """
                 response = client.models.generate_content(model=MODEL, contents=prompt)
-                st.session_state['summary_data'] = json.loads(response.text.replace("```json", "").replace("```", "").strip())
+                
+                # [오류 방지 코드 추가] AI 응답 정제 로직
+                raw_text = response.text.strip()
+                clean_text = re.sub(r'```json|```', '', raw_text).strip()
+                
+                start_idx = clean_text.find('[')
+                end_idx = clean_text.rfind(']')
+                if start_idx != -1 and end_idx != -1:
+                    clean_text = clean_text[start_idx:end_idx+1]
+                
+                st.session_state['summary_data'] = json.loads(clean_text)
                 st.rerun()
-            except Exception as e: st.error(f"오류: {e}")
+                
+            except json.JSONDecodeError:
+                st.error("AI가 올바른 형식(JSON)으로 표를 만들지 못했습니다. 다시 시도해 주세요.")
+                with st.expander("AI 응답 원본 확인 (디버깅용)"):
+                    st.write(response.text if 'response' in locals() else "응답 없음")
+            except Exception as e: 
+                st.error(f"오류: {e}")
 
     # ── 워드 다운로드 ──
     if st.session_state['summary_data']:
@@ -501,7 +518,7 @@ with tab4:
                 
                 if not sub_sections: continue
 
-                # [핵심] 3열 테이블 생성 (소주제 / 세부분류 / 내용)
+                # 3열 테이블 생성 (소주제 / 세부분류 / 내용)
                 table = doc_out.add_table(rows=0, cols=3)
                 table.style = 'Table Grid' 
                 
@@ -513,14 +530,12 @@ with tab4:
                 cell_main.text = main_topic
                 
                 set_cell_background(cell_main, "495057") 
-                # 메인 주제 폰트: 맑은 고딕 10pt (Bold)
                 p_main = cell_main.paragraphs[0]
                 p_main.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 run_main = p_main.runs[0]
                 run_main.font.color.rgb = RGBColor(255, 255, 255)
                 set_font_style(run_main, font_size=10, is_bold=True)
 
-                # [병합 로직을 위한 변수]
                 last_key = None
                 key_cell_anchor = None
 
@@ -551,9 +566,8 @@ with tab4:
                         key_cell_anchor = cell_key
                         last_key = key
                     
-                    # ── 2열 & 3열 처리 (폰트 9pt) ──
+                    # ── 2열 & 3열 처리 ──
                     if sub_key and sub_key.strip():
-                        # 하위 분류 있음
                         cell_sub = row.cells[1]
                         cell_sub.text = sub_key
                         cell_sub.width = Cm(2.5)
@@ -566,12 +580,11 @@ with tab4:
                         
                         cell_val = row.cells[2]
                     else:
-                        # 하위 분류 없음
                         cell_sub = row.cells[1]
                         cell_sub.merge(row.cells[2])
                         cell_val = row.cells[1]
 
-                    # ── 내용 채우기 (폰트 9pt) ──
+                    # ── 내용 채우기 ──
                     cell_val.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                     p = cell_val.paragraphs[0]
                     p.paragraph_format.line_spacing = 1.0 
@@ -585,11 +598,8 @@ with tab4:
                         if tag_match:
                             tag_type = tag_match.group(1)
                             text_body = tag_match.group(2)
-                            
-                            # run 추가 후 폰트 설정
                             run = p.add_run(text_body)
                             
-                            # 색상 설정
                             if tag_type == 'yellow':
                                 run.font.highlight_color = WD_COLOR_INDEX.YELLOW
                                 set_font_style(run, font_size=9, is_bold=False)
@@ -600,7 +610,6 @@ with tab4:
                                 run.font.color.rgb = RGBColor(0xAD, 0xB5, 0xBD)
                                 set_font_style(run, font_size=9, is_bold=False)
                         else:
-                            # 일반 텍스트
                             run = p.add_run(part)
                             set_font_style(run, font_size=9, is_bold=False)
 
