@@ -179,31 +179,65 @@ if 'show_explanation' not in st.session_state: st.session_state['show_explanatio
 if 'summary_data' not in st.session_state: st.session_state['summary_data'] = None
 if 'user_style' not in st.session_state: st.session_state['user_style'] = ""
 
-tab1, tab2, tab3, tab4 = st.tabs(["📝 문제 생성", "🧠 실전 모의고사", "🗂️ 문제 관리", "📋 정리본 형성"])
+tab4, tab1, tab2, tab3 = st.tabs(["📋 정리본 형성", "📝 문제 생성", "🧠 실전 모의고사", "🗂️ 문제 관리"])
 
 # ==========================================
 # [탭 1] 문제 생성
 # ==========================================
 with tab1:
-    uploaded_file = st.file_uploader("자료 업로드", type=['docx', 'pdf', 'pptx'], key="tab1_uploader", label_visibility="collapsed")
-    study_content = read_file(uploaded_file) if uploaded_file else ""
-    if uploaded_file and study_content:
-        st.success(f"파일 읽기 성공! ({len(study_content)}자)")
+    quiz_note_content = ""
+    quiz_jokbo_content = ""
+    col_q1, col_q2 = st.columns(2)
 
-    if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not bool(study_content)):
-        with st.spinner("출제위원이 5개 문제를 만들고 있습니다..."):
+    with col_q1:
+        st.markdown("**📄 정리본 업로드**")
+        quiz_note_file = st.file_uploader("정리본 업로드", type=['docx', 'pdf', 'pptx'], key="quiz_note_uploader", label_visibility="collapsed")
+        if quiz_note_file:
+            if quiz_note_file.name.endswith('.pptx'):
+                try:
+                    prs = PptxPresentation(quiz_note_file)
+                    txt = []
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if shape.has_text_frame: txt.append(shape.text_frame.text)
+                    quiz_note_content = "\n".join(txt)
+                except: pass
+            else:
+                quiz_note_content = read_file(quiz_note_file)
+            if quiz_note_content:
+                st.success(f"정리본 읽기 성공! ({len(quiz_note_content)}자)")
+
+    with col_q2:
+        st.markdown("**📚 족보 업로드**")
+        quiz_jokbo_file = st.file_uploader("족보 업로드", type=['docx', 'pdf'], key="quiz_jokbo_uploader", label_visibility="collapsed")
+        if quiz_jokbo_file:
+            quiz_jokbo_content = read_file(quiz_jokbo_file)
+            if quiz_jokbo_content:
+                st.success(f"족보 읽기 성공! ({len(quiz_jokbo_content)}자)")
+
+    st.divider()
+    both_uploaded = bool(quiz_note_content) and bool(quiz_jokbo_content)
+
+    if st.button("⚡ 5문제 출제하기", type="primary", use_container_width=True, disabled=not both_uploaded):
+        with st.spinner("족보 출제 경향을 분석하여 문제를 만들고 있습니다..."):
             try:
-                medical_categories = ["순환기내과", "호흡기내과", "소화기내과", "신장내과", "내분비내과", "감염내과", "류마티스내과", "신경과", "일반외과", "산부인과", "소아청소년과", "응급의학과", "예방의학", "피부과", "정신건강의학과"]
-                selected_categories = random.sample(medical_categories, 5)
-                categories_str = ", ".join(selected_categories)
-
                 prompt = f"""
-                당신은 의사 국가고시 출제위원입니다. 다음 내용을 바탕으로 5지선다형 객관식 문제 5개를 만드세요.
-                [필수 출제 계통] {categories_str} (순서대로)
-                [내용] {study_content[:15000]}
-                [출력] 반드시 JSON 배열 형식:
+                당신은 시험 문제 출제 전문가입니다.
+                아래 [족보]의 출제 경향(문제 형식, 선지 구성, 난이도, 출제 스타일)을 먼저 분석한 뒤,
+                [정리본] 내용을 바탕으로 족보와 동일한 스타일의 객관식 문제 5개를 만드세요.
+
+                [분석 포인트]
+                - 족보가 5지선다인지 4지선다인지 파악하여 동일하게 출제
+                - 단순 암기형인지, 임상 시나리오형인지, 비교/구분형인지 등 문제 유형 파악
+                - 선지의 길이, 구체성, 함정 패턴 등을 모방
+                - 국시 스타일이 아닐 수도 있으니, 족보 원본의 스타일을 최대한 따를 것
+
+                [정리본] {quiz_note_content[:15000]}
+                [족보] {quiz_jokbo_content[:20000]}
+
+                [출력] 반드시 JSON 배열 형식으로 출력하세요. 선지 개수는 족보 분석 결과에 맞추세요:
                 [
-                    {{"question": "질문", "options": ["보기1", "보기2", "보기3", "보기4", "보기5"], "correct_index": 0, "explanation": "해설"}}, ...
+                    {{"question": "질문", "options": ["보기1", "보기2", ...], "correct_index": 0, "explanation": "해설"}}, ...
                 ]
                 """
                 response = client.models.generate_content(model=MODEL, contents=prompt)
